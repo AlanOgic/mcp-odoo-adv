@@ -126,15 +126,15 @@ Add this to your `claude_desktop_config.json`:
         "-i",
         "--rm",
         "-e",
-        "ODOO_URL",
+        "ODOO_URL=https://your-odoo-instance.com",
         "-e",
-        "ODOO_DB",
+        "ODOO_DB=your-database-name",
         "-e",
-        "ODOO_USERNAME",
+        "ODOO_USERNAME=your-username",
         "-e",
-        "ODOO_PASSWORD",
-        "mcp/odoo"
-      ],
+        "ODOO_PASSWORD=your-password-or-api-key",
+        "alanogic/mcp-odoo-adv:latest"
+      ]
     }
   }
 }
@@ -160,7 +160,7 @@ odoo-mcp
 
 ```bash
 # Build the Docker image
-docker build -t mcp/odoo-adv:latest -f Dockerfile .
+docker build -t alanogic/mcp-odoo-adv:latest -f Dockerfile .
 
 # Run the container
 docker run -i --rm \
@@ -168,7 +168,7 @@ docker run -i --rm \
   -e ODOO_DB=your-database \
   -e ODOO_USERNAME=your-username \
   -e ODOO_PASSWORD=your-password \
-  mcp/odoo-adv
+  alanogic/mcp-odoo-adv:latest
 ```
 
 ### 3. Running the Server

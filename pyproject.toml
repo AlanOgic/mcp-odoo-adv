@@ -21,14 +21,14 @@ authors = [
 ]
 # Forked from tuanle96/mcp-odoo by Lê Anh Tuấn
 dependencies = [
-    "mcp>=0.1.1",
+    "fastmcp>=2.12.0",
     "requests>=2.31.0",
     "pypi-xmlrpc==2020.12.3",
 ]
 
 [project.urls]
-Homepage = "https://github.com/tuanle96/mcp-odoo"
-Issues = "https://github.com/tuanle96/mcp-odoo/issues"
+Homepage = "https://github.com/AlanOgic/mcp-odoo-adv"
+Issues = "https://github.com/AlanOgic/mcp-odoo-adv/issues"
 
 [project.optional-dependencies]
 dev = [

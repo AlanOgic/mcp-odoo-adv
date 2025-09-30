@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, AsyncIterator, Dict, List, Optional, Union, cast
 
-from mcp.server.fastmcp import Context, FastMCP
+from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
 from .odoo_client import OdooClient, get_odoo_client
@@ -51,7 +51,12 @@ mcp = FastMCP(
 
 
 @mcp.resource(
-    "odoo://models", description="List all available models in the Odoo system"
+    "odoo://models",
+    description="List all available models in the Odoo system",
+    annotations={
+        "audience": ["assistant"],
+        "priority": 0.9
+    }
 )
 def get_models() -> str:
     """Lists all available models in the Odoo system"""
@@ -63,6 +68,10 @@ def get_models() -> str:
 @mcp.resource(
     "odoo://model/{model_name}",
     description="Get detailed information about a specific model including fields",
+    annotations={
+        "audience": ["assistant"],
+        "priority": 0.8
+    }
 )
 def get_model_info(model_name: str) -> str:
     """
@@ -88,6 +97,10 @@ def get_model_info(model_name: str) -> str:
 @mcp.resource(
     "odoo://record/{model_name}/{record_id}",
     description="Get detailed information of a specific record by ID",
+    annotations={
+        "audience": ["user", "assistant"],
+        "priority": 0.7
+    }
 )
 def get_record(model_name: str, record_id: str) -> str:
     """
@@ -113,6 +126,10 @@ def get_record(model_name: str, record_id: str) -> str:
 @mcp.resource(
     "odoo://search/{model_name}/{domain}",
     description="Search for records matching the domain",
+    annotations={
+        "audience": ["user", "assistant"],
+        "priority": 0.6
+    }
 )
 def search_records_resource(model_name: str, domain: str) -> str:
     """
@@ -208,10 +225,23 @@ class SearchHolidaysResponse(BaseModel):
     error: Optional[str] = Field(default=None, description="Error message, if any")
 
 
+class ExecuteMethodResponse(BaseModel):
+    """Response model for the execute_method tool."""
+
+    success: bool = Field(description="Indicates if the method execution was successful")
+    result: Optional[Any] = Field(
+        default=None, description="Result of the method execution"
+    )
+    error: Optional[str] = Field(default=None, description="Error message, if any")
+
+
 # ----- MCP Tools -----
 
 
-@mcp.tool(description="Execute a custom method on an Odoo model")
+@mcp.tool(
+    description="Execute a custom method on an Odoo model",
+    output_schema=ExecuteMethodResponse.model_json_schema()
+)
 def execute_method(
     ctx: Context,
     model: str,
@@ -348,7 +378,10 @@ def execute_method(
         return {"success": False, "error": str(e)}
 
 
-@mcp.tool(description="Search for employees by name")
+@mcp.tool(
+    description="Search for employees by name",
+    output_schema=SearchEmployeeResponse.model_json_schema()
+)
 def search_employee(
     ctx: Context,
     name: str,
@@ -381,7 +414,10 @@ def search_employee(
         return SearchEmployeeResponse(success=False, error=str(e))
 
 
-@mcp.tool(description="Search for holidays within a date range")
+@mcp.tool(
+    description="Search for holidays within a date range",
+    output_schema=SearchHolidaysResponse.model_json_schema()
+)
 def search_holidays(
     ctx: Context,
     start_date: str,

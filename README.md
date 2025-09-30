@@ -8,17 +8,27 @@ This advanced version includes enhanced features, improved performance, and foll
 
 ## Features
 
-* **Comprehensive Odoo Integration**: Full access to Odoo models, records, and methods
-* **XML-RPC Communication**: Secure connection to Odoo instances via XML-RPC (JSON-RPC support planned)
-* **Flexible Configuration**: Support for config files and environment variables
-* **Resource Pattern System**: URI-based access to Odoo data structures
-* **Enhanced Error Handling**: Clear error messages with detailed logging
-* **Stateless Operations**: Clean request/response cycle for reliable integration
+### Core Capabilities
+* **Comprehensive Odoo Integration**: Full access to Odoo models, records, and methods via XML-RPC
 * **MCP 2025 Compliant**: Implements latest Model Context Protocol specification (2025-06-18)
-* **Advanced Domain Normalization**: Supports multiple domain input formats for flexible querying
-* **Custom Transport**: HTTP proxy support, SSL verification control, automatic redirects
-* **Production Ready**: Enhanced logging, timeout configuration, and error recovery
+* **FastMCP 2.12+**: Built with latest FastMCP framework for optimal performance
 * **Python 3.10-3.13**: Tested and supported on Python 3.10, 3.11, 3.12, and 3.13
+
+### Advanced Features
+* **Resource Templates**: Dynamic URI-based access to Odoo data with parameter support
+* **Output Schemas**: Type-safe tool responses with Pydantic models
+* **Resource Annotations**: Priority, audience, and metadata for better AI understanding
+* **Smart Method Discovery**: Built-in method catalog showing available operations per model
+* **Advanced Domain Normalization**: Supports multiple domain input formats (list, object, JSON string)
+* **Server Metadata Access**: Query Odoo version, installed modules, and configuration
+
+### Production Ready
+* **Custom Transport Layer**: HTTP proxy support, SSL verification control, automatic redirects
+* **Enhanced Error Handling**: Detailed error messages with context
+* **Flexible Configuration**: Environment variables and fastmcp.json configuration
+* **Comprehensive Logging**: Enhanced debugging with timestamped log files
+* **Stateless Operations**: Clean request/response cycle for reliable integration
+* **Timeout Management**: Configurable connection timeouts (default: 30s)
 
 ## Tools
 
@@ -48,22 +58,50 @@ This advanced version includes enhanced features, improved performance, and foll
 
 ## Resources
 
+MCP resources provide URI-based access to Odoo data. FastMCP automatically categorizes them into **Resources** (static) and **Resource Templates** (parameterized).
+
+### Static Resources
+
 * **odoo://models**
   * Lists all available models in the Odoo system
+  * Priority: 0.9 (high - essential for discovery)
   * Returns: JSON array of model information
+
+* **odoo://server/info**
+  * Get Odoo server metadata (version, database, installed modules)
+  * Priority: 0.5 (useful for context)
+  * Returns: JSON object with server information
+
+### Resource Templates (Parameterized)
 
 * **odoo://model/{model_name}**
   * Get information about a specific model including fields
+  * Priority: 0.8
   * Example: `odoo://model/res.partner`
   * Returns: JSON object with model metadata and field definitions
 
+* **odoo://fields/{model_name}**
+  * Get just field definitions for a model (lighter than full model info)
+  * Priority: 0.75
+  * Example: `odoo://fields/sale.order`
+  * Returns: JSON object with field definitions
+
+* **odoo://methods/{model_name}**
+  * List available Odoo ORM methods with descriptions and parameters
+  * Priority: 0.7
+  * Includes usage examples for execute_method tool
+  * Example: `odoo://methods/res.partner`
+  * Returns: JSON object with read/write methods catalog
+
 * **odoo://record/{model_name}/{record_id}**
   * Get a specific record by ID
+  * Priority: 0.7
   * Example: `odoo://record/res.partner/1`
   * Returns: JSON object with record data
 
 * **odoo://search/{model_name}/{domain}**
   * Search for records that match a domain
+  * Priority: 0.6
   * Example: `odoo://search/res.partner/[["is_company","=",true]]`
   * Returns: JSON array of matching records (limited to 10 by default)
 
@@ -208,18 +246,55 @@ When using the MCP tools for Odoo, pay attention to these parameter formatting g
    * Should be an array of field names: `["name", "email", "phone"]`
    * The server will try to parse string inputs as JSON
 
+## What's New in v0.0.4
+
+### MCP 2025 Upgrades ✨
+- ✅ **FastMCP 2.12+**: Upgraded from legacy MCP SDK to latest FastMCP framework
+- ✅ **Output Schemas**: Type-safe tool responses with Pydantic models
+- ✅ **Resource Annotations**: Priority, audience, and metadata for AI optimization
+- ✅ **fastmcp.json**: Configuration file for FastMCP 2.12+ (replaces deprecated dependencies param)
+
+### New Resources 🎯
+- ✅ **odoo://fields/{model_name}**: Quick field definitions lookup
+- ✅ **odoo://methods/{model_name}**: Method catalog with usage examples
+- ✅ **odoo://server/info**: Server metadata (version, modules, database)
+
+### Python & Compatibility 🐍
+- ✅ **Python 3.13 Support**: Full support for Python 3.10-3.13
+- ✅ **Docker Python Version**: Configurable via ARG (default: 3.10)
+
+### Developer Experience 🛠️
+- ✅ **Enhanced Documentation**: Comprehensive CLAUDE.md for development
+- ✅ **Improved Logging**: Timestamped logs in ./logs/ directory
+- ✅ **Better Error Messages**: Context-aware error handling
+
+### Research & Understanding 📚
+- ✅ **MCP Spec Compliance**: Verified against MCP 2025-06-18 specification
+- ✅ **Production Patterns**: Analyzed ivnvxd/mcp-server-odoo and hachecito/odoo-mcp-improved
+- ✅ **Resource Templates**: Confirmed FastMCP auto-categorization (Resources vs Templates)
+
 ## Roadmap
 
 See our planned improvements in the [dev branch](https://github.com/AlanOgic/mcp-odoo-adv/tree/dev):
 
-- [ ] JSON-RPC support (30-40% faster than XML-RPC)
-- [ ] MCP resource annotations (audience, priority, lastModified)
-- [ ] Resource templates for dynamic queries
-- [ ] Batch operations tool
-- [ ] Output schemas for better type safety
-- [ ] Comprehensive test suite
-- [ ] Caching layer for performance
-- [ ] Rate limiting and security enhancements
+### High Priority
+- [ ] **Prompts**: Business workflow templates (sales analysis, inventory check, etc.)
+- [ ] **Context Logging**: Structured logging for AI debugging (ctx.info, ctx.debug)
+- [ ] **Progress Reporting**: Real-time progress for long operations
+- [ ] **Error Codes**: Actionable error codes for better AI responses
+
+### Quality Improvements
+- [ ] **Input Validation**: Systematic validation and sanitization
+- [ ] **Better Documentation**: Usage examples in all docstrings
+- [ ] **Comprehensive Test Suite**: Unit and integration tests
+
+### Advanced Features
+- [ ] **Resource Subscriptions**: Real-time update notifications
+- [ ] **Rate Limiting**: Production safety and abuse prevention
+- [ ] **Health Check Tool**: Monitoring and deployment support
+- [ ] **JSON-RPC Support**: 30-40% faster than XML-RPC
+- [ ] **Caching Layer**: Performance optimization
+- [ ] **Batch Operations**: Multi-record operations tool
 
 ## Contributing
 

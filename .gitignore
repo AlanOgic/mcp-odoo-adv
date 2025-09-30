@@ -30,7 +30,7 @@ logs/
 .env.development.local
 .env.test.local
 .env.production.local
-
+.claude/agents
 # Odoo specific
 odoo_config.json
 
@@ -47,4 +47,4 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
-.hypothesis/ 
+.hypothesis/

@@ -5,6 +5,7 @@ Provides MCP tools and resources for interacting with Odoo ERP systems
 """
 
 import json
+import sys
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -339,7 +340,7 @@ def execute_method(
                 args = normalized_args
 
                 # Log for debugging
-                print(f"Executing {method} with normalized domain: {domain_list}")
+                print(f"Executing {method} with normalized domain: {domain_list}", file=sys.stderr)
 
         result = odoo.execute_method(model, method, *args, **kwargs)
         return {"success": True, "result": result}

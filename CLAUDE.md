@@ -251,7 +251,7 @@ Add to `claude_desktop_config.json`:
 - Detailed diagnostics on startup (environment variables, connection details)
 
 ### Python Version
-Requires Python ≥3.10 (configured in pyproject.toml)
+Requires Python ≥3.10, tested and supported on Python 3.10-3.13 (configured in pyproject.toml)
 
 ### Dependencies
 - `fastmcp>=2.12.0` - FastMCP framework (MCP 2025-06-18 spec compliant)

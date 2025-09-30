@@ -1,4 +1,7 @@
-FROM python:3.10-slim
+# Supports Python 3.10-3.13, using 3.10 as stable baseline
+# To use Python 3.13: docker build --build-arg PYTHON_VERSION=3.13 -t alanogic/mcp-odoo-adv:latest .
+ARG PYTHON_VERSION=3.10
+FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app
 

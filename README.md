@@ -18,6 +18,7 @@ This advanced version includes enhanced features, improved performance, and foll
 * **Advanced Domain Normalization**: Supports multiple domain input formats for flexible querying
 * **Custom Transport**: HTTP proxy support, SSL verification control, automatic redirects
 * **Production Ready**: Enhanced logging, timeout configuration, and error recovery
+* **Python 3.10-3.13**: Tested and supported on Python 3.10, 3.11, 3.12, and 3.13
 
 ## Tools
 
@@ -159,8 +160,11 @@ odoo-mcp
 ### 2. Docker Build and Run
 
 ```bash
-# Build the Docker image
+# Build with Python 3.10 (default)
 docker build -t alanogic/mcp-odoo-adv:latest -f Dockerfile .
+
+# Build with Python 3.13
+docker build --build-arg PYTHON_VERSION=3.13 -t alanogic/mcp-odoo-adv:py313 -f Dockerfile .
 
 # Run the container
 docker run -i --rm \

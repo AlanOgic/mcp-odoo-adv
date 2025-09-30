@@ -13,6 +13,9 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
 ]
 keywords = ["odoo", "mcp", "server"]
@@ -49,14 +52,14 @@ packages = ["odoo_mcp"]
 
 [tool.black]
 line-length = 88
-target-version = ["py310"]
+target-version = ["py310", "py311", "py312", "py313"]
 
 [tool.isort]
 profile = "black"
 line_length = 88
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.10"  # Minimum version for compatibility checking
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

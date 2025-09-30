@@ -273,6 +273,62 @@ def get_methods(model_name: str) -> str:
         return json.dumps({"error": str(e)}, indent=2)
 
 
+@mcp.resource(
+    "odoo://server/info",
+    description="Get Odoo server information including version and installed modules",
+    annotations={
+        "audience": ["user", "assistant"],
+        "priority": 0.5
+    }
+)
+def get_server_info() -> str:
+    """
+    Get Odoo server metadata
+
+    Returns server version, database name, and list of installed modules
+    """
+    odoo_client = get_odoo_client()
+    try:
+        # Get server version info
+        version_info = odoo_client.execute_method(
+            'ir.module.module',
+            'search_read',
+            [[['state', '=', 'installed'], ['name', '=', 'base']]],
+            {'fields': ['latest_version'], 'limit': 1}
+        )
+
+        # Get list of installed modules
+        installed_modules = odoo_client.execute_method(
+            'ir.module.module',
+            'search_read',
+            [[['state', '=', 'installed']]],
+            {'fields': ['name', 'shortdesc', 'author', 'installed_version'], 'limit': 100}
+        )
+
+        # Get database name from config
+        db_name = odoo_client.db if hasattr(odoo_client, 'db') else "unknown"
+
+        server_info = {
+            "database": db_name,
+            "odoo_version": version_info[0].get('latest_version', 'unknown') if version_info else 'unknown',
+            "installed_modules_count": len(installed_modules),
+            "key_modules": [
+                {
+                    "name": mod.get('name'),
+                    "title": mod.get('shortdesc'),
+                    "version": mod.get('installed_version'),
+                    "author": mod.get('author', 'Unknown')
+                }
+                for mod in installed_modules[:20]  # First 20 modules
+            ],
+            "note": f"Showing first 20 of {len(installed_modules)} installed modules"
+        }
+
+        return json.dumps(server_info, indent=2)
+    except Exception as e:
+        return json.dumps({"error": str(e)}, indent=2)
+
+
 # ----- Pydantic models for type safety -----
 
 

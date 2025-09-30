@@ -42,7 +42,6 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
 # Create MCP server
 mcp = FastMCP(
     "Odoo MCP Server",
-    dependencies=["requests"],
     lifespan=app_lifespan,
 )
 
@@ -151,6 +150,125 @@ def search_records_resource(model_name: str, domain: str) -> str:
         results = odoo_client.search_read(model_name, domain_list, limit=limit)
 
         return json.dumps(results, indent=2)
+    except Exception as e:
+        return json.dumps({"error": str(e)}, indent=2)
+
+
+@mcp.resource(
+    "odoo://fields/{model_name}",
+    description="Get field definitions for a specific model",
+    annotations={
+        "audience": ["assistant"],
+        "priority": 0.75
+    }
+)
+def get_fields(model_name: str) -> str:
+    """
+    Get field definitions for a model
+
+    Parameters:
+        model_name: Name of the Odoo model (e.g., 'res.partner')
+    """
+    odoo_client = get_odoo_client()
+    try:
+        fields = odoo_client.get_model_fields(model_name)
+        return json.dumps(fields, indent=2)
+    except Exception as e:
+        return json.dumps({"error": str(e)}, indent=2)
+
+
+@mcp.resource(
+    "odoo://methods/{model_name}",
+    description="List available methods for a specific model",
+    annotations={
+        "audience": ["assistant"],
+        "priority": 0.7
+    }
+)
+def get_methods(model_name: str) -> str:
+    """
+    Get available methods for a model
+
+    Note: This returns common Odoo ORM methods. Custom methods may exist
+    but require direct model inspection via execute_method.
+
+    Parameters:
+        model_name: Name of the Odoo model (e.g., 'res.partner')
+    """
+    odoo_client = get_odoo_client()
+    try:
+        # Return common Odoo ORM methods
+        common_methods = {
+            "read_methods": [
+                {
+                    "name": "search",
+                    "description": "Search for record IDs matching domain",
+                    "params": ["domain", "offset", "limit", "order", "count"]
+                },
+                {
+                    "name": "search_read",
+                    "description": "Search and read records in one call",
+                    "params": ["domain", "fields", "offset", "limit", "order"]
+                },
+                {
+                    "name": "read",
+                    "description": "Read specific fields from records",
+                    "params": ["ids", "fields"]
+                },
+                {
+                    "name": "search_count",
+                    "description": "Count records matching domain",
+                    "params": ["domain"]
+                },
+                {
+                    "name": "name_search",
+                    "description": "Search records by name",
+                    "params": ["name", "args", "operator", "limit"]
+                },
+                {
+                    "name": "name_get",
+                    "description": "Get display names for records",
+                    "params": ["ids"]
+                },
+                {
+                    "name": "fields_get",
+                    "description": "Get field definitions",
+                    "params": ["allfields", "attributes"]
+                }
+            ],
+            "write_methods": [
+                {
+                    "name": "create",
+                    "description": "Create new record(s)",
+                    "params": ["vals"]
+                },
+                {
+                    "name": "write",
+                    "description": "Update existing record(s)",
+                    "params": ["ids", "vals"]
+                },
+                {
+                    "name": "unlink",
+                    "description": "Delete record(s)",
+                    "params": ["ids"]
+                }
+            ],
+            "note": f"Use execute_method tool to call these methods on {model_name}",
+            "example": {
+                "tool": "execute_method",
+                "model": model_name,
+                "method": "search_read",
+                "args": [
+                    [["name", "ilike", "example"]]
+                ],
+                "kwargs": {
+                    "fields": ["id", "name"],
+                    "limit": 10
+                }
+            }
+        }
+
+        return json.dumps(common_methods, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)}, indent=2)
 

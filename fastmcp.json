@@ -1,0 +1,47 @@
+{
+  "name": "odoo-mcp-adv",
+  "version": "0.0.4",
+  "entrypoint": "src/odoo_mcp/server.py",
+  "description": "Advanced MCP Server for Odoo Integration",
+  "environment": {
+    "dependencies": ["requests", "pypi-xmlrpc"]
+  },
+  "configuration": {
+    "ODOO_URL": {
+      "type": "string",
+      "description": "Odoo server URL",
+      "required": true
+    },
+    "ODOO_DB": {
+      "type": "string",
+      "description": "Odoo database name",
+      "required": true
+    },
+    "ODOO_USERNAME": {
+      "type": "string",
+      "description": "Odoo username",
+      "required": true
+    },
+    "ODOO_PASSWORD": {
+      "type": "string",
+      "description": "Odoo password or API key",
+      "required": true,
+      "secret": true
+    },
+    "ODOO_TIMEOUT": {
+      "type": "integer",
+      "description": "Connection timeout in seconds",
+      "default": 30
+    },
+    "ODOO_VERIFY_SSL": {
+      "type": "boolean",
+      "description": "Whether to verify SSL certificates",
+      "default": true
+    },
+    "HTTP_PROXY": {
+      "type": "string",
+      "description": "HTTP proxy URL for Odoo connection",
+      "required": false
+    }
+  }
+}

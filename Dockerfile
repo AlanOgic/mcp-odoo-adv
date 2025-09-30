@@ -5,21 +5,28 @@ FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (cached layer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy source code
-COPY . /app/
+# Copy only dependency files first (for better caching)
+COPY pyproject.toml /app/
+
+# Install Python dependencies (cached layer if pyproject.toml unchanged)
+RUN pip install --no-cache-dir "fastmcp[cli]>=2.12.0" requests "pypi-xmlrpc==2020.12.3"
+
+# Copy source code (only invalidates this layer and below when code changes)
+COPY src/ /app/src/
+COPY run_server.py /app/
+COPY fastmcp.json /app/
+
+# Install package in editable mode (fast - no dependencies to install)
+RUN pip install --no-cache-dir -e .
 
 # Create logs directory
 RUN mkdir -p /app/logs && chmod 777 /app/logs
-
-# Install Python dependencies and the package
-RUN pip install --no-cache-dir "fastmcp[cli]>=2.12.0" && \
-    pip install --no-cache-dir -e .
 
 # Set environment variables (can be overridden at runtime)
 ENV ODOO_URL=""

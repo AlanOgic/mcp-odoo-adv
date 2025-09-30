@@ -1,18 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
-Standalone script to run the Odoo MCP server 
-Uses the same approach as in the official MCP SDK examples
+Standalone script to run the Odoo MCP server with enhanced logging
+Compatible with FastMCP 2.12+
 """
 import sys
 import os
-import asyncio
-import anyio
 import logging
 import datetime
-
-from mcp.server.stdio import stdio_server
-from mcp.server.lowlevel import Server
-import mcp.types as types
 
 from odoo_mcp.server import mcp  # FastMCP instance from our code
 
@@ -51,10 +45,10 @@ def setup_logging():
 
 def main() -> int:
     """
-    Run the MCP server based on the official examples
+    Run the MCP server with FastMCP 2.12+
     """
     logger = setup_logging()
-    
+
     try:
         logger.info("=== ODOO MCP SERVER STARTING ===")
         logger.info(f"Python version: {sys.version}")
@@ -65,23 +59,20 @@ def main() -> int:
                     logger.info(f"  {key}: ***hidden***")
                 else:
                     logger.info(f"  {key}: {value}")
-        
+
         logger.info(f"MCP object type: {type(mcp)}")
-        
-        # Run server in stdio mode like the official examples
-        async def arun():
-            logger.info("Starting Odoo MCP server with stdio transport...")
-            async with stdio_server() as streams:
-                logger.info("Stdio server initialized, running MCP server...")
-                await mcp._mcp_server.run(
-                    streams[0], streams[1], mcp._mcp_server.create_initialization_options()
-                )
-                
-        # Run server
-        anyio.run(arun)
+        logger.info("Starting Odoo MCP server with FastMCP run() method...")
+        sys.stderr.flush()
+
+        # Use FastMCP's run() method - same as __main__.py
+        mcp.run()
+
         logger.info("MCP server stopped normally")
         return 0
-        
+
+    except KeyboardInterrupt:
+        logger.info("MCP server stopped by user")
+        return 0
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         return 1

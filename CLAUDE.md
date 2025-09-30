@@ -70,10 +70,11 @@ This is an MCP (Model Context Protocol) server that provides AI assistants with 
 ### Three-Layer Architecture
 
 **1. MCP Server Layer** (`src/odoo_mcp/server.py`)
-- Built on FastMCP framework
+- Built on FastMCP 2.12+ framework (MCP 2025-06-18 spec compliant)
 - Implements MCP resources (URI-based data access) and tools (RPC methods)
 - Uses `AppContext` dataclass to inject OdooClient into request context
-- Pydantic models for type-safe tool inputs/outputs
+- Pydantic models for type-safe tool inputs/outputs with output schemas
+- Resource annotations for better AI context (audience, priority)
 - Entry points:
   - `__main__.py`: Standard entry point using `mcp.run()`
   - `run_server.py`: Standalone script with enhanced logging to `./logs/`
@@ -99,21 +100,32 @@ This is an MCP (Model Context Protocol) server that provides AI assistants with 
 
 ### MCP Resources (URI-based)
 
+All resources include annotations for better AI context understanding (MCP 2025 feature).
+
 - `odoo://models` - List all available Odoo models
+  - Annotations: audience=assistant, priority=0.9
 - `odoo://model/{model_name}` - Get model metadata and field definitions
+  - Annotations: audience=assistant, priority=0.8
 - `odoo://record/{model_name}/{record_id}` - Retrieve specific record by ID
+  - Annotations: audience=user+assistant, priority=0.7
 - `odoo://search/{model_name}/{domain}` - Search records with domain (limit=10)
+  - Annotations: audience=user+assistant, priority=0.6
 
 ### MCP Tools (RPC methods)
+
+All tools include output schemas for type safety and validation (MCP 2025 feature).
 
 **execute_method** - General-purpose method executor with complex domain normalization
 - Accepts args (list) and kwargs (dict)
 - Special handling for search methods (`search`, `search_count`, `search_read`)
 - Normalizes domain parameters from multiple formats (list, object, JSON string)
+- Output schema: `ExecuteMethodResponse` with success, result, and error fields
 
 **search_employee** - Convenience wrapper for `hr.employee.name_search`
+- Output schema: `SearchEmployeeResponse` with typed employee results
 
 **search_holidays** - Date range query for `hr.leave.report.calendar` with timezone adjustments
+- Output schema: `SearchHolidaysResponse` with typed holiday results
 
 ## Domain Parameter Handling
 
@@ -195,7 +207,7 @@ Add to `claude_desktop_config.json`:
 Requires Python ≥3.10 (configured in pyproject.toml)
 
 ### Dependencies
-- `mcp>=0.1.1` - Model Context Protocol framework
+- `fastmcp>=2.12.0` - FastMCP framework (MCP 2025-06-18 spec compliant)
 - `requests>=2.31.0` - HTTP library
 - `pypi-xmlrpc==2020.12.3` - XML-RPC protocol support
 

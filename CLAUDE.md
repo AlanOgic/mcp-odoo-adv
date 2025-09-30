@@ -17,31 +17,78 @@ docker build -t mcp/odoo:latest -f Dockerfile .
 ```
 
 ### Running the Server
+
+**Important**: If you installed in a virtual environment, activate it first:
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Or use the helper script
+source activate_venv.sh
+```
+
+Then run the server:
 ```bash
 # Run as installed package (uses __main__.py entry point)
 odoo-mcp
 
+# Run standalone script with enhanced logging (logs to ./logs/)
+python3 run_server.py
+
 # Run with MCP development tools
 mcp dev src/odoo_mcp/server.py
 
-# Run standalone script (with logging to ./logs/)
-python run_server.py
+# Run as Python module
+python3 -m odoo_mcp
 
 # Docker run
-docker run -i --rm -e ODOO_URL -e ODOO_DB -e ODOO_USERNAME -e ODOO_PASSWORD mcp/odoo
+docker run -i --rm -e ODOO_URL -e ODOO_DB -e ODOO_USERNAME -e ODOO_PASSWORD alanogic/mcp-odoo-adv
 ```
+
+**Note**: Both `odoo-mcp` and `python3 run_server.py` now use the same FastMCP 2.12+ `mcp.run()` method. The difference is that `run_server.py` provides enhanced logging to `./logs/`.
 
 ### Debugging
 ```bash
 # The run_server.py script provides enhanced logging to ./logs/ with timestamps
 # Check logs for connection issues and domain normalization details
-python run_server.py
+python3 run_server.py
 
 # View real-time logs
 tail -f logs/mcp_server_*.log
 
 # Environment diagnostics printed to stderr on startup
 # Check ODOO_* environment variables and connection details
+```
+
+### Troubleshooting
+
+**Problem**: `python` or `pip` commands don't work, even in venv
+
+**Solution**: Use `python3` and `pip3` explicitly:
+```bash
+# Activate venv first
+source .venv/bin/activate
+
+# Use python3 and pip3 (not python or pip)
+python3 --version
+pip3 list
+python3 run_server.py
+```
+
+**Problem**: `odoo-mcp` command not found
+
+**Solution**: Make sure you've activated the virtual environment:
+```bash
+source .venv/bin/activate
+which odoo-mcp  # Should show .venv/bin/odoo-mcp
+```
+
+**Problem**: Different behavior between `odoo-mcp` and `python3 run_server.py`
+
+**Solution**: This was fixed in FastMCP 2.12+ upgrade. Both now use the same `mcp.run()` method. Make sure you've pulled the latest changes and reinstalled:
+```bash
+git pull origin dev
+pip3 install -e ".[dev]"
 ```
 
 ### Code Quality

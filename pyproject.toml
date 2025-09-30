@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "odoo-mcp"
-version = "0.0.3"
+version = "0.0.4"
 description = "MCP Server for Odoo Integration"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,8 +17,9 @@ classifiers = [
 ]
 keywords = ["odoo", "mcp", "server"]
 authors = [
-    {name = "Lê Anh Tuấn", email = "justin.le.1105@gmail.com"}
+    {name = "Alan Ogic", email = "info@alanogic.com"}
 ]
+# Forked from tuanle96/mcp-odoo by Lê Anh Tuấn
 dependencies = [
     "mcp>=0.1.1",
     "requests>=2.31.0",

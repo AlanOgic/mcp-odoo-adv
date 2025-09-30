@@ -1,16 +1,23 @@
-# Odoo MCP Server that just works
-(Based on the tuanle96/mcp-odoo, thanks to him for his very good work)
+# Odoo MCP Server Advanced
 
-An MCP server implementation that integrates with Odoo ERP systems, enabling AI assistants to interact with Odoo data and functionality through the Model Context Protocol.
+An advanced MCP (Model Context Protocol) server implementation for Odoo ERP systems, enabling AI assistants to interact with Odoo data and functionality through the standardized Model Context Protocol.
+
+**Forked from [tuanle96/mcp-odoo](https://github.com/tuanle96/mcp-odoo)** - Thanks to Lê Anh Tuấn for the excellent foundation.
+
+This advanced version includes enhanced features, improved performance, and follows the latest MCP 2025-06-18 specification.
 
 ## Features
 
 * **Comprehensive Odoo Integration**: Full access to Odoo models, records, and methods
-* **XML-RPC Communication**: Secure connection to Odoo instances via XML-RPC
+* **XML-RPC Communication**: Secure connection to Odoo instances via XML-RPC (JSON-RPC support planned)
 * **Flexible Configuration**: Support for config files and environment variables
 * **Resource Pattern System**: URI-based access to Odoo data structures
-* **Error Handling**: Clear error messages for common Odoo API issues
+* **Enhanced Error Handling**: Clear error messages with detailed logging
 * **Stateless Operations**: Clean request/response cycle for reliable integration
+* **MCP 2025 Compliant**: Implements latest Model Context Protocol specification (2025-06-18)
+* **Advanced Domain Normalization**: Supports multiple domain input formats for flexible querying
+* **Custom Transport**: HTTP proxy support, SSL verification control, automatic redirects
+* **Production Ready**: Enhanced logging, timeout configuration, and error recovery
 
 ## Tools
 
@@ -133,44 +140,48 @@ Add this to your `claude_desktop_config.json`:
 }
 ```
 
-## Installations methods
+## Installation Methods
 
-## 1. Docker Build and Run
-
-Docker build:
+### 1. From Source (Recommended for Development)
 
 ```bash
-docker build -t mcp/odoo:latest -f Dockerfile .
+# Clone the repository
+git clone https://github.com/AlanOgic/mcp-odoo-adv.git
+cd mcp-odoo-adv
+
+# Install with dev dependencies
+pip install -e ".[dev]"
+
+# Run the server
+odoo-mcp
 ```
 
-Docker run:
+### 2. Docker Build and Run
 
 ```bash
-docker run -i --rm -e ODOO_URL -e ODOO_DB -e ODOO_USERNAME -e ODOO_PASSWORD mcp/odoo
+# Build the Docker image
+docker build -t mcp/odoo-adv:latest -f Dockerfile .
+
+# Run the container
+docker run -i --rm \
+  -e ODOO_URL=https://your-instance.odoo.com \
+  -e ODOO_DB=your-database \
+  -e ODOO_USERNAME=your-username \
+  -e ODOO_PASSWORD=your-password \
+  mcp/odoo-adv
 ```
 
-
-
-### 2. Python Package
-
-```bash
-pip install odoo-mcp
-```
-
-### Running the Server
+### 3. Running the Server
 
 ```bash
 # Using the installed package
 odoo-mcp
 
-# Using the MCP development tools
-mcp dev odoo_mcp/server.py
+# With enhanced logging (logs to ./logs/)
+python run_server.py
 
-# With additional dependencies
-mcp dev odoo_mcp/server.py --with pandas --with numpy
-
-# Mount local code for development
-mcp dev odoo_mcp/server.py --with-editable .
+# Using MCP development tools
+mcp dev src/odoo_mcp/server.py
 ```
 
 
@@ -193,6 +204,39 @@ When using the MCP tools for Odoo, pay attention to these parameter formatting g
    * Should be an array of field names: `["name", "email", "phone"]`
    * The server will try to parse string inputs as JSON
 
+## Roadmap
+
+See our planned improvements in the [dev branch](https://github.com/AlanOgic/mcp-odoo-adv/tree/dev):
+
+- [ ] JSON-RPC support (30-40% faster than XML-RPC)
+- [ ] MCP resource annotations (audience, priority, lastModified)
+- [ ] Resource templates for dynamic queries
+- [ ] Batch operations tool
+- [ ] Output schemas for better type safety
+- [ ] Comprehensive test suite
+- [ ] Caching layer for performance
+- [ ] Rate limiting and security enhancements
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Development
+
+For detailed development instructions, see [CLAUDE.md](CLAUDE.md).
+
 ## License
 
-This MCP server is licensed under the MIT License. 
+This MCP server is licensed under the MIT License.
+
+## Acknowledgments
+
+- Original project by [Lê Anh Tuấn](https://github.com/tuanle96/mcp-odoo)
+- Built with [FastMCP](https://github.com/jlowin/fastmcp)
+- Follows [Model Context Protocol](https://modelcontextprotocol.io) specification

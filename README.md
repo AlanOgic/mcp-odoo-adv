@@ -6,10 +6,22 @@ An advanced MCP (Model Context Protocol) server implementation for Odoo ERP syst
 
 This advanced version includes enhanced features, improved performance, and follows the latest MCP 2025-06-18 specification.
 
+## What's New in v0.0.5 (Unreleased)
+
+### Multiple Transport Support 🚀
+- **SSE Transport**: Server-Sent Events for web browsers and HTTP clients
+- **Streamable HTTP**: Bidirectional streaming for API integrations
+- **STDIO Transport**: Default for Claude Desktop (existing)
+- Flexible deployment with `run_server_sse.py` and `run_server_http.py`
+- Docker images for each transport: `alanogic/mcp-odoo-adv:sse`, `alanogic/mcp-odoo-adv:http`
+- Environment variables: `MCP_HOST`, `MCP_PORT`, `MCP_SSE_PATH`, `MCP_HTTP_PATH`
+- See [TRANSPORTS.md](TRANSPORTS.md) for complete documentation
+
 ## Features
 
 ### Core Capabilities
-* **Comprehensive Odoo Integration**: Full access to Odoo models, records, and methods via XML-RPC
+* **Multiple Transports**: STDIO, SSE, and Streamable HTTP for different use cases
+* **Comprehensive Odoo Integration**: Full access to Odoo models, records, and methods via JSON-RPC
 * **MCP 2025 Compliant**: Implements latest Model Context Protocol specification (2025-06-18)
 * **FastMCP 2.12+**: Built with latest FastMCP framework for optimal performance
 * **Python 3.10-3.13**: Tested and supported on Python 3.10, 3.11, 3.12, and 3.13
@@ -179,52 +191,58 @@ Add this to your `claude_desktop_config.json`:
 }
 ```
 
-## Installation Methods
+## Quick Start
 
-### 1. From Source (Recommended for Development)
-
+### Install from Source
 ```bash
-# Clone the repository
 git clone https://github.com/AlanOgic/mcp-odoo-adv.git
 cd mcp-odoo-adv
-
-# Install with dev dependencies
 pip install -e ".[dev]"
-
-# Run the server
-odoo-mcp
 ```
 
-### 2. Docker Build and Run
-
+### Run with STDIO (Claude Desktop)
 ```bash
-# Build with Python 3.10 (default)
-docker build -t alanogic/mcp-odoo-adv:latest -f Dockerfile .
+# Copy and configure environment
+cp .env.example .env
+# Edit .env with your Odoo credentials
 
-# Build with Python 3.13
-docker build --build-arg PYTHON_VERSION=3.13 -t alanogic/mcp-odoo-adv:py313 -f Dockerfile .
-
-# Run the container
-docker run -i --rm \
-  -e ODOO_URL=https://your-instance.odoo.com \
-  -e ODOO_DB=your-database \
-  -e ODOO_USERNAME=your-username \
-  -e ODOO_PASSWORD=your-password \
-  alanogic/mcp-odoo-adv:latest
-```
-
-### 3. Running the Server
-
-```bash
-# Using the installed package
-odoo-mcp
-
-# With enhanced logging (logs to ./logs/)
+# Run server
 python run_server.py
-
-# Using MCP development tools
-mcp dev src/odoo_mcp/server.py
 ```
+
+### Run with SSE (Web Browsers)
+```bash
+# Run SSE server
+python run_server_sse.py
+
+# Access at http://localhost:8000/sse
+```
+
+### Run with Streamable HTTP (API)
+```bash
+# Run HTTP server
+python run_server_http.py
+
+# Access at http://localhost:8000/mcp
+```
+
+### Docker
+```bash
+# STDIO transport
+docker run -i --rm --env-file .env alanogic/mcp-odoo-adv:latest
+
+# SSE transport
+docker run -p 8000:8000 --env-file .env alanogic/mcp-odoo-adv:sse
+
+# HTTP transport
+docker run -p 8000:8000 --env-file .env alanogic/mcp-odoo-adv:http
+```
+
+## Documentation
+
+- **[TRANSPORTS.md](TRANSPORTS.md)**: Complete transport options guide (STDIO, SSE, HTTP)
+- **[CLAUDE.md](CLAUDE.md)**: Development guide for contributors
+- **[CHANGELOG.md](CHANGELOG.md)**: Version history and changes
 
 
 
@@ -277,6 +295,10 @@ When using the MCP tools for Odoo, pay attention to these parameter formatting g
 
 See our planned improvements in the [dev branch](https://github.com/AlanOgic/mcp-odoo-adv/tree/dev):
 
+### Completed ✅
+- [x] **Multiple Transports**: STDIO, SSE, and Streamable HTTP support
+- [x] **JSON-RPC Support**: ~75% faster than XML-RPC (617 vs 353 req/sec)
+
 ### High Priority
 - [ ] **Prompts**: Business workflow templates (sales analysis, inventory check, etc.)
 - [ ] **Context Logging**: Structured logging for AI debugging (ctx.info, ctx.debug)
@@ -292,7 +314,6 @@ See our planned improvements in the [dev branch](https://github.com/AlanOgic/mcp
 - [ ] **Resource Subscriptions**: Real-time update notifications
 - [ ] **Rate Limiting**: Production safety and abuse prevention
 - [ ] **Health Check Tool**: Monitoring and deployment support
-- [ ] **JSON-RPC Support**: 30-40% faster than XML-RPC
 - [ ] **Caching Layer**: Performance optimization
 - [ ] **Batch Operations**: Multi-record operations tool
 

@@ -48,3 +48,18 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+
+# Environment files
+.env.*
+!.env.example
+
+# Docker
+.dockerignore
+2025-09-30-command-messageinit-is-analyzing-your-codebase.txt
+2025-10-01-command-messageinit-is-analyzing-your-codebase.txt
+EXECUTE_METHOD_FIX_SUMMARY.md
+KNOWN_ISSUES.md
+uv.lock
+src/odoo_mcp/odoo_client.py.xmlrpc.backup
+src/odoo_mcp/server.py.backup
+src/odoo_mcp/server.py.xmlrpc.backup

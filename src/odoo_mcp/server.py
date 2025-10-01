@@ -289,21 +289,34 @@ def get_server_info() -> str:
     """
     odoo_client = get_odoo_client()
     try:
-        # Get server version info
-        version_info = odoo_client.execute_method(
+        # Get server version info - search for base module
+        base_ids = odoo_client._execute(
             'ir.module.module',
-            'search_read',
-            [[['state', '=', 'installed'], ['name', '=', 'base']]],
-            {'fields': ['latest_version'], 'limit': 1}
+            'search',
+            [['state', '=', 'installed'], ['name', '=', 'base']]
+        )
+        # Read only specific fields to avoid None values
+        version_info = odoo_client._execute(
+            'ir.module.module',
+            'read',
+            base_ids[:1],
+            ['latest_version', 'installed_version']
+        ) if base_ids else []
+
+        # Get all installed modules
+        module_ids = odoo_client._execute(
+            'ir.module.module',
+            'search',
+            [['state', '=', 'installed']]
         )
 
-        # Get list of installed modules
-        installed_modules = odoo_client.execute_method(
+        # Read all installed modules with specific fields to avoid None values
+        installed_modules = odoo_client._execute(
             'ir.module.module',
-            'search_read',
-            [[['state', '=', 'installed']]],
-            {'fields': ['name', 'shortdesc', 'author', 'installed_version'], 'limit': 100}
-        )
+            'read',
+            module_ids,
+            ['name', 'shortdesc', 'author', 'installed_version', 'application', 'license']
+        ) if module_ids else []
 
         # Get database name from config
         db_name = odoo_client.db if hasattr(odoo_client, 'db') else "unknown"
@@ -311,17 +324,18 @@ def get_server_info() -> str:
         server_info = {
             "database": db_name,
             "odoo_version": version_info[0].get('latest_version', 'unknown') if version_info else 'unknown',
-            "installed_modules_count": len(installed_modules),
-            "key_modules": [
+            "installed_modules_count": len(module_ids) if module_ids else 0,
+            "installed_modules": [
                 {
                     "name": mod.get('name'),
                     "title": mod.get('shortdesc'),
                     "version": mod.get('installed_version'),
-                    "author": mod.get('author', 'Unknown')
+                    "author": mod.get('author', 'Unknown'),
+                    "application": mod.get('application', False),
+                    "license": mod.get('license', 'Unknown')
                 }
-                for mod in installed_modules[:20]  # First 20 modules
-            ],
-            "note": f"Showing first 20 of {len(installed_modules)} installed modules"
+                for mod in installed_modules
+            ]
         }
 
         return json.dumps(server_info, indent=2)
@@ -413,24 +427,39 @@ class ExecuteMethodResponse(BaseModel):
 
 
 @mcp.tool(
-    description="Execute a custom method on an Odoo model",
+    description="Execute a custom method on an Odoo model - Fixed for Claude Desktop bug",
     output_schema=ExecuteMethodResponse.model_json_schema()
 )
 def execute_method(
     ctx: Context,
     model: str,
     method: str,
-    args: List = None,
-    kwargs: Optional[Dict[str, Any]] = None,
+    args_json: str = None,
+    kwargs_json: str = None,
 ) -> Dict[str, Any]:
     """
     Execute a custom method on an Odoo model
 
+    FIXED: Now accepts JSON strings to work around Claude Desktop parameter bug.
+
     Parameters:
         model: The model name (e.g., 'res.partner')
         method: Method name to execute
-        args: Positional arguments
-        kwargs: Keyword arguments
+        args_json: JSON string for positional arguments (e.g., '[[["name", "=", "Test"]]]')
+        kwargs_json: JSON string for keyword arguments (e.g., '{"fields": ["name", "email"], "limit": 10}')
+
+    Examples:
+        Search partners:
+            model='res.partner'
+            method='search_read'
+            args_json='[[["name", "ilike", "Acme"]]]'
+            kwargs_json='{"fields": ["name", "email"], "limit": 5}'
+
+        Get fields:
+            model='crm.lead'
+            method='fields_get'
+            args_json=null
+            kwargs_json=null
 
     Returns:
         Dictionary containing:
@@ -440,8 +469,25 @@ def execute_method(
     """
     odoo = ctx.request_context.lifespan_context.odoo
     try:
-        args = args or []
-        kwargs = kwargs or {}
+        # Parse JSON strings to actual Python objects
+        args = []
+        kwargs = {}
+
+        if args_json:
+            try:
+                args = json.loads(args_json)
+                if not isinstance(args, list):
+                    return {"success": False, "error": f"args_json must be a JSON array, got: {type(args).__name__}"}
+            except json.JSONDecodeError as e:
+                return {"success": False, "error": f"Invalid JSON in args_json: {str(e)}"}
+
+        if kwargs_json:
+            try:
+                kwargs = json.loads(kwargs_json)
+                if not isinstance(kwargs, dict):
+                    return {"success": False, "error": f"kwargs_json must be a JSON object, got: {type(kwargs).__name__}"}
+            except json.JSONDecodeError as e:
+                return {"success": False, "error": f"Invalid JSON in kwargs_json: {str(e)}"}
 
         # Special handling for search methods like search, search_count, search_read
         search_methods = ["search", "search_count", "search_read"]

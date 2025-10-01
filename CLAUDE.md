@@ -27,25 +27,54 @@ source .venv/bin/activate
 source activate_venv.sh
 ```
 
-Then run the server:
+Then run the server with your chosen transport:
+
+**STDIO Transport (default for Claude Desktop)**
 ```bash
-# Run as installed package (uses __main__.py entry point)
+# Run as installed package
 odoo-mcp
 
-# Run standalone script with enhanced logging (logs to ./logs/)
+# Run standalone script with enhanced logging
 python3 run_server.py
-
-# Run with MCP development tools
-mcp dev src/odoo_mcp/server.py
 
 # Run as Python module
 python3 -m odoo_mcp
 
-# Docker run
+# Docker
 docker run -i --rm -e ODOO_URL -e ODOO_DB -e ODOO_USERNAME -e ODOO_PASSWORD alanogic/mcp-odoo-adv
 ```
 
-**Note**: Both `odoo-mcp` and `python3 run_server.py` now use the same FastMCP 2.12+ `mcp.run()` method. The difference is that `run_server.py` provides enhanced logging to `./logs/`.
+**SSE Transport (for web browsers/HTTP clients)**
+```bash
+# Run SSE server
+python3 run_server_sse.py
+
+# With custom configuration
+MCP_HOST=localhost MCP_PORT=9000 python3 run_server_sse.py
+
+# Docker
+docker run -p 8000:8000 --env-file .env alanogic/mcp-odoo-adv:sse
+```
+
+**Streamable HTTP Transport (for API integrations)**
+```bash
+# Run HTTP server
+python3 run_server_http.py
+
+# With custom configuration
+MCP_HOST=localhost MCP_PORT=9000 python3 run_server_http.py
+
+# Docker
+docker run -p 8000:8000 --env-file .env alanogic/mcp-odoo-adv:http
+```
+
+**Transport Configuration:**
+- STDIO: Process pipes (stdin/stdout), no network
+- SSE: Server-Sent Events on http://host:port/sse (default: http://0.0.0.0:8000/sse)
+- HTTP: Streamable HTTP on http://host:port/mcp (default: http://0.0.0.0:8000/mcp)
+- Environment: `MCP_HOST`, `MCP_PORT`, `MCP_SSE_PATH`, `MCP_HTTP_PATH`
+
+See [TRANSPORTS.md](TRANSPORTS.md) for complete transport documentation.
 
 ### Debugging
 ```bash

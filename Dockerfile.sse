@@ -1,0 +1,22 @@
+# Dockerfile for Odoo MCP Server with SSE Transport
+# Build: docker build -t alanogic/mcp-odoo-adv:sse -f Dockerfile.sse .
+# Run: docker run -p 8000:8000 --env-file .env alanogic/mcp-odoo-adv:sse
+
+ARG PYTHON_VERSION=3.10
+FROM python:${PYTHON_VERSION}-slim
+
+WORKDIR /app
+
+# Install dependencies first for better caching
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir -e .
+
+# Copy source code
+COPY src/ ./src/
+COPY run_server_sse.py ./
+
+# Expose SSE port
+EXPOSE 8000
+
+# Run SSE server
+ENTRYPOINT ["python", "run_server_sse.py"]

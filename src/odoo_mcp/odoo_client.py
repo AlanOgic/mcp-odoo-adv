@@ -1,19 +1,19 @@
 """
-Odoo XML-RPC client for MCP server integration
+Odoo JSON-RPC client for MCP server integration
 """
 
 import json
 import os
+import sys
 import re
-import socket
 import urllib.parse
+from typing import Any, Dict, List, Optional
 
-import http.client
-import xmlrpc.client
+import requests
 
 
 class OdooClient:
-    """Client for interacting with Odoo via XML-RPC"""
+    """Client for interacting with Odoo via JSON-RPC"""
 
     def __init__(
         self,
@@ -21,7 +21,7 @@ class OdooClient:
         db,
         username,
         password,
-        timeout=10,
+        timeout=30,
         verify_ssl=True,
     ):
         """
@@ -52,66 +52,115 @@ class OdooClient:
         self.timeout = timeout
         self.verify_ssl = verify_ssl
 
-        # Setup connections
-        self._common = None
-        self._models = None
+        # Setup session
+        self.session = requests.Session()
+        self.session.verify = verify_ssl
+
+        # HTTP proxy support
+        proxy = os.environ.get("HTTP_PROXY")
+        if proxy:
+            self.session.proxies = {"http": proxy, "https": proxy}
 
         # Parse hostname for logging
         parsed_url = urllib.parse.urlparse(self.url)
         self.hostname = parsed_url.netloc
 
+        # JSON-RPC endpoint
+        self.jsonrpc_url = f"{self.url}/jsonrpc"
+
+        # Request ID counter
+        self._request_id = 0
+
         # Connect
         self._connect()
 
-    def _connect(self):
-        """Initialize the XML-RPC connection and authenticate"""
-        # Tạo transport với timeout phù hợp
-        is_https = self.url.startswith("https://")
-        transport = RedirectTransport(
-            timeout=self.timeout, use_https=is_https, verify_ssl=self.verify_ssl
-        )
+    def _jsonrpc_call(self, service: str, method: str, *args) -> Any:
+        """
+        Make a JSON-RPC 1.x call to Odoo
 
-        print(f"Connecting to Odoo at: {self.url}", file=os.sys.stderr)
-        print(f"  Hostname: {self.hostname}", file=os.sys.stderr)
+        Args:
+            service: Service name ('common' or 'object')
+            method: Method name to call
+            *args: Arguments to pass to the method
+
+        Returns:
+            Result of the method call
+        """
+        self._request_id += 1
+
+        payload = {
+            "jsonrpc": "1.0",
+            "method": "call",
+            "params": {
+                "service": service,
+                "method": method,
+                "args": list(args)
+            },
+            "id": self._request_id
+        }
+
+        try:
+            response = self.session.post(
+                self.jsonrpc_url,
+                json=payload,
+                timeout=self.timeout,
+                headers={"Content-Type": "application/json"}
+            )
+            response.raise_for_status()
+
+            result = response.json()
+
+            if "error" in result:
+                error_data = result["error"]
+                error_msg = error_data.get("data", {}).get("message", str(error_data))
+                raise ValueError(f"Odoo error: {error_msg}")
+
+            return result.get("result")
+
+        except requests.exceptions.Timeout as e:
+            raise TimeoutError(f"Request timeout after {self.timeout}s: {str(e)}")
+        except requests.exceptions.ConnectionError as e:
+            raise ConnectionError(f"Failed to connect to Odoo server: {str(e)}")
+        except requests.exceptions.RequestException as e:
+            raise ValueError(f"Request failed: {str(e)}")
+
+    def _connect(self):
+        """Initialize the JSON-RPC connection and authenticate"""
+        print(f"Connecting to Odoo at: {self.url}", file=sys.stderr)
+        print(f"  Hostname: {self.hostname}", file=sys.stderr)
         print(
             f"  Timeout: {self.timeout}s, Verify SSL: {self.verify_ssl}",
-            file=os.sys.stderr,
+            file=sys.stderr,
         )
+        print(f"  JSON-RPC endpoint: {self.jsonrpc_url}", file=sys.stderr)
 
-        # Thiết lập endpoints
-        self._common = xmlrpc.client.ServerProxy(
-            f"{self.url}/xmlrpc/2/common", transport=transport
-        )
-        self._models = xmlrpc.client.ServerProxy(
-            f"{self.url}/xmlrpc/2/object", transport=transport
-        )
-
-        # Xác thực và lấy user ID
+        # Authenticate and get user ID
         print(
             f"Authenticating with database: {self.db}, username: {self.username}",
-            file=os.sys.stderr,
+            file=sys.stderr,
         )
         try:
-            print(
-                f"Making request to {self.hostname}/xmlrpc/2/common (attempt 1)",
-                file=os.sys.stderr,
-            )
-            self.uid = self._common.authenticate(
-                self.db, self.username, self.password, {}
+            self.uid = self._jsonrpc_call(
+                "common", "authenticate", self.db, self.username, self.password, {}
             )
             if not self.uid:
                 raise ValueError("Authentication failed: Invalid username or password")
-        except (socket.error, socket.timeout, ConnectionError, TimeoutError) as e:
-            print(f"Connection error: {str(e)}", file=os.sys.stderr)
-            raise ConnectionError(f"Failed to connect to Odoo server: {str(e)}")
+
+            print(f"  Authenticated successfully with UID: {self.uid}", file=sys.stderr)
+
+        except (TimeoutError, ConnectionError) as e:
+            print(f"Connection error: {str(e)}", file=sys.stderr)
+            raise
         except Exception as e:
-            print(f"Authentication error: {str(e)}", file=os.sys.stderr)
+            print(f"Authentication error: {str(e)}", file=sys.stderr)
             raise ValueError(f"Failed to authenticate with Odoo: {str(e)}")
 
     def _execute(self, model, method, *args, **kwargs):
-        """Execute a method on an Odoo model"""
-        return self._models.execute_kw(
-            self.db, self.uid, self.password, model, method, args, kwargs
+        """Execute a method on an Odoo model using JSON-RPC"""
+        return self._jsonrpc_call(
+            "object", "execute_kw",
+            self.db, self.uid, self.password,
+            model, method, args, kwargs
         )
 
     def execute_method(self, model, method, *args, **kwargs):
@@ -172,7 +221,7 @@ class OdooClient:
 
             return models_info
         except Exception as e:
-            print(f"Error retrieving models: {str(e)}", file=os.sys.stderr)
+            print(f"Error retrieving models: {str(e)}", file=sys.stderr)
             return {"model_names": [], "models_details": {}, "error": str(e)}
 
     def get_model_info(self, model_name):
@@ -204,7 +253,7 @@ class OdooClient:
 
             return result[0]
         except Exception as e:
-            print(f"Error retrieving model info: {str(e)}", file=os.sys.stderr)
+            print(f"Error retrieving model info: {str(e)}", file=sys.stderr)
             return {"error": str(e)}
 
     def get_model_fields(self, model_name):
@@ -227,7 +276,7 @@ class OdooClient:
             fields = self._execute(model_name, "fields_get")
             return fields
         except Exception as e:
-            print(f"Error retrieving fields: {str(e)}", file=os.sys.stderr)
+            print(f"Error retrieving fields: {str(e)}", file=sys.stderr)
             return {"error": str(e)}
 
     def search_read(
@@ -264,10 +313,10 @@ class OdooClient:
             if order is not None:
                 kwargs["order"] = order
 
-            result = self._execute(model_name, "search_read", domain, kwargs)
+            result = self._execute(model_name, "search_read", domain, **kwargs)
             return result
         except Exception as e:
-            print(f"Error in search_read: {str(e)}", file=os.sys.stderr)
+            print(f"Error in search_read: {str(e)}", file=sys.stderr)
             return []
 
     def read_records(self, model_name, ids, fields=None):
@@ -296,74 +345,8 @@ class OdooClient:
             result = self._execute(model_name, "read", ids, kwargs)
             return result
         except Exception as e:
-            print(f"Error reading records: {str(e)}", file=os.sys.stderr)
+            print(f"Error reading records: {str(e)}", file=sys.stderr)
             return []
-
-
-class RedirectTransport(xmlrpc.client.Transport):
-    """Transport that adds timeout, SSL verification, and redirect handling"""
-
-    def __init__(
-        self, timeout=10, use_https=True, verify_ssl=True, max_redirects=5, proxy=None
-    ):
-        super().__init__()
-        self.timeout = timeout
-        self.use_https = use_https
-        self.verify_ssl = verify_ssl
-        self.max_redirects = max_redirects
-        self.proxy = proxy or os.environ.get("HTTP_PROXY")
-
-        if use_https and not verify_ssl:
-            import ssl
-
-            self.context = ssl._create_unverified_context()
-
-    def make_connection(self, host):
-        if self.proxy:
-            proxy_url = urllib.parse.urlparse(self.proxy)
-            connection = http.client.HTTPConnection(
-                proxy_url.hostname, proxy_url.port, timeout=self.timeout
-            )
-            connection.set_tunnel(host)
-        else:
-            if self.use_https and not self.verify_ssl:
-                connection = http.client.HTTPSConnection(
-                    host, timeout=self.timeout, context=self.context
-                )
-            else:
-                if self.use_https:
-                    connection = http.client.HTTPSConnection(host, timeout=self.timeout)
-                else:
-                    connection = http.client.HTTPConnection(host, timeout=self.timeout)
-
-        return connection
-
-    def request(self, host, handler, request_body, verbose):
-        """Send HTTP request with retry for redirects"""
-        redirects = 0
-        while redirects < self.max_redirects:
-            try:
-                print(f"Making request to {host}{handler}", file=os.sys.stderr)
-                return super().request(host, handler, request_body, verbose)
-            except xmlrpc.client.ProtocolError as err:
-                if err.errcode in (301, 302, 303, 307, 308) and err.headers.get(
-                    "location"
-                ):
-                    redirects += 1
-                    location = err.headers.get("location")
-                    parsed = urllib.parse.urlparse(location)
-                    if parsed.netloc:
-                        host = parsed.netloc
-                    handler = parsed.path
-                    if parsed.query:
-                        handler += "?" + parsed.query
-                else:
-                    raise
-            except Exception as e:
-                print(f"Error during request: {str(e)}", file=os.sys.stderr)
-                raise
-
-        raise xmlrpc.client.ProtocolError(host + handler, 310, "Too many redirects", {})
 
 
 def load_config():
@@ -420,12 +403,12 @@ def get_odoo_client():
     verify_ssl = os.environ.get("ODOO_VERIFY_SSL", "1").lower() in ["1", "true", "yes"]
 
     # Print detailed configuration
-    print("Odoo client configuration:", file=os.sys.stderr)
-    print(f"  URL: {config['url']}", file=os.sys.stderr)
-    print(f"  Database: {config['db']}", file=os.sys.stderr)
-    print(f"  Username: {config['username']}", file=os.sys.stderr)
-    print(f"  Timeout: {timeout}s", file=os.sys.stderr)
-    print(f"  Verify SSL: {verify_ssl}", file=os.sys.stderr)
+    print("Odoo client configuration:", file=sys.stderr)
+    print(f"  URL: {config['url']}", file=sys.stderr)
+    print(f"  Database: {config['db']}", file=sys.stderr)
+    print(f"  Username: {config['username']}", file=sys.stderr)
+    print(f"  Timeout: {timeout}s", file=sys.stderr)
+    print(f"  Verify SSL: {verify_ssl}", file=sys.stderr)
 
     return OdooClient(
         url=config["url"],

@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml /app/
 
 # Install Python dependencies (cached layer if pyproject.toml unchanged)
-RUN pip install --no-cache-dir "fastmcp[cli]>=2.12.0" requests "pypi-xmlrpc==2020.12.3"
+RUN pip install --no-cache-dir "fastmcp[cli]>=2.12.0" requests
 
 # Copy source code (only invalidates this layer and below when code changes)
 COPY src/ /app/src/

@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy only dependency files first (for better caching)
 COPY pyproject.toml /app/
+COPY odoo_config.json /app/
 
 # Install Python dependencies (cached layer if pyproject.toml unchanged)
 RUN pip install --no-cache-dir "fastmcp[cli]>=2.12.0" requests

@@ -1277,7 +1277,8 @@ def deep_read(
     record_id: int,
     follow_relations: Optional[List[str]] = None,
     depth: int = 1,
-    limit_per_relation: int = 10
+    limit_per_relation: int = 10,
+    minimal_fields: bool = True
 ) -> DeepReadResponse:
     """
     Fetch a record and automatically follow its relationships
@@ -1287,9 +1288,10 @@ def deep_read(
     Parameters:
         model: Model name (e.g., 'sale.order')
         record_id: ID of the record to read
-        follow_relations: Specific relation fields to follow (None = all many2one fields)
+        follow_relations: Specific relation fields to follow (None = only many2one fields)
         depth: How deep to follow relations (1 = direct relations only, 2 = relations of relations)
         limit_per_relation: Max records to fetch per relation (default: 10, prevents huge responses)
+        minimal_fields: Only fetch id, name, display_name for related records (default: True, prevents oversized responses)
 
     Examples:
         # Get sales order with customer and order lines
@@ -1334,6 +1336,10 @@ def deep_read(
             if follow_relations and field_name not in follow_relations:
                 continue
 
+            # If no specific relations requested, only follow many2one (prevents massive responses)
+            if not follow_relations and field_type not in ['many2one']:
+                continue
+
             if field_type in ['many2one', 'one2many', 'many2many']:
                 relations_to_follow.append({
                     'field': field_name,
@@ -1351,11 +1357,17 @@ def deep_read(
                 continue
 
             try:
+                # Define minimal fields for related records
+                minimal_field_list = ['id', 'name', 'display_name'] if minimal_fields else None
+
                 if field_type == 'many2one':
                     # many2one: [id, name] format
                     if isinstance(record[field_name], list) and len(record[field_name]) >= 1:
                         rel_id = record[field_name][0]
-                        rel_data = odoo.read_records(relation_model, [rel_id])
+                        if minimal_fields:
+                            rel_data = odoo.read_records(relation_model, [rel_id], fields=minimal_field_list)
+                        else:
+                            rel_data = odoo.read_records(relation_model, [rel_id])
                         if rel_data:
                             related_records[field_name] = rel_data[0]
 
@@ -1365,7 +1377,10 @@ def deep_read(
                     if isinstance(rel_ids, list) and rel_ids:
                         # Limit to prevent huge queries
                         rel_ids = rel_ids[:limit_per_relation]
-                        rel_data = odoo.read_records(relation_model, rel_ids)
+                        if minimal_fields:
+                            rel_data = odoo.read_records(relation_model, rel_ids, fields=minimal_field_list)
+                        else:
+                            rel_data = odoo.read_records(relation_model, rel_ids)
                         if rel_data:
                             related_records[field_name] = rel_data
 

@@ -103,16 +103,18 @@ User-selectable prompt templates appear in Claude's prompt menu:
 
 * **deep_read**
   * Fetch record with related data in one intelligent query
-  * Auto-follows relationships (many2one, one2many, many2many)
+  * Auto-follows relationships with smart defaults to prevent oversized responses
   * Inputs:
     * `model` (string): Model name
     * `record_id` (int): Record ID to fetch
-    * `follow_relations` (optional array): Specific fields to follow (default: all many2one)
+    * `follow_relations` (optional array): Specific fields to follow (default: only many2one fields)
     * `depth` (int): How deep to follow (1 = direct, 2 = relations of relations)
     * `limit_per_relation` (int): Max records per relation (default: 10)
+    * `minimal_fields` (bool): Only fetch id/name/display_name for relations (default: True)
   * Returns: `{success, record, related_records{}, error}`
-  * Example: Get sales order with customer + lines + products in one call
-  * **Important**: Use `limit_per_relation` to prevent oversized responses; start with depth=1
+  * Example: Get sales order with customer info (many2one relations only)
+  * **Optimized**: By default only follows many2one with minimal fields to prevent oversized responses
+  * **For one2many/many2many**: Explicitly specify in `follow_relations` parameter
 
 * **batch_execute**
   * Execute multiple operations in atomic transaction

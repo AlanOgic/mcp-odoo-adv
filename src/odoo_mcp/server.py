@@ -1282,7 +1282,8 @@ def deep_read(
     model: str,
     record_id: int,
     follow_relations: Optional[List[str]] = None,
-    depth: int = 1
+    depth: int = 1,
+    limit_per_relation: int = 10
 ) -> DeepReadResponse:
     """
     Fetch a record and automatically follow its relationships
@@ -1294,6 +1295,7 @@ def deep_read(
         record_id: ID of the record to read
         follow_relations: Specific relation fields to follow (None = all many2one fields)
         depth: How deep to follow relations (1 = direct relations only, 2 = relations of relations)
+        limit_per_relation: Max records to fetch per relation (default: 10, prevents huge responses)
 
     Examples:
         # Get sales order with customer and order lines
@@ -1368,7 +1370,7 @@ def deep_read(
                     rel_ids = record[field_name]
                     if isinstance(rel_ids, list) and rel_ids:
                         # Limit to prevent huge queries
-                        rel_ids = rel_ids[:50]
+                        rel_ids = rel_ids[:limit_per_relation]
                         rel_data = odoo.read_records(relation_model, rel_ids)
                         if rel_data:
                             related_records[field_name] = rel_data

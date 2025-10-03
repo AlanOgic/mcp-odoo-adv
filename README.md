@@ -98,7 +98,8 @@ User-selectable prompt templates appear in Claude's prompt menu:
   * Validates: Model exists, permissions, required fields, field types
   * Inputs: `model`, `method`, `args_json`, `kwargs_json` (same as execute_method)
   * Returns: `{valid, errors[], warnings[], suggestions[], safe_to_execute}`
-  * **Best Practice**: Always validate before `create` or `write` operations
+  * **Best Practice**: Useful for pre-flight checks on `create` or `write` operations
+  * **Note**: Performs comprehensive validation; some checks may produce warnings
 
 * **deep_read**
   * Fetch record with related data in one intelligent query
@@ -108,17 +109,24 @@ User-selectable prompt templates appear in Claude's prompt menu:
     * `record_id` (int): Record ID to fetch
     * `follow_relations` (optional array): Specific fields to follow (default: all many2one)
     * `depth` (int): How deep to follow (1 = direct, 2 = relations of relations)
+    * `limit_per_relation` (int): Max records per relation (default: 10)
   * Returns: `{success, record, related_records{}, error}`
   * Example: Get sales order with customer + lines + products in one call
+  * **Important**: Use `limit_per_relation` to prevent oversized responses; start with depth=1
 
 * **batch_execute**
   * Execute multiple operations in atomic transaction
   * All succeed or all rollback (when atomic=true)
   * Inputs:
-    * `operations` (array): List of {model, method, args_json, kwargs_json}
+    * `operations` (array): List of operations, each with:
+      * `model` (string, required)
+      * `method` (string, required)
+      * `args` or `args_json`: Positional arguments (direct array or JSON string)
+      * `kwargs` or `kwargs_json`: Keyword arguments (direct object or JSON string)
     * `atomic` (bool): Transaction mode (default: true)
   * Returns: `{success, results[], total_operations, successful_operations, failed_operations}`
   * Example: Create customer + create order in one transaction
+  * **Flexible Format**: Accepts both direct objects and JSON strings for parameters
 
 ### Domain-Specific Tools
 

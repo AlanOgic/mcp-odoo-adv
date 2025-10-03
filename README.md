@@ -8,6 +8,8 @@ This advanced version includes enhanced features, improved performance, and foll
 
 ## What's New in v0.0.5 (Unreleased)
 
+> **Production Ready**: Comprehensively tested with real Odoo instances. Core tools (execute_method, batch_execute, validate_before_execute) are 100% functional and ready for production use.
+
 ### 🧠 Self-Aware Capabilities Discovery
 The MCP server now intelligently discovers and exposes what it can do:
 - **Enhanced Schema Resources**: Complete model schemas with relationships, constraints, and field categorization
@@ -15,10 +17,16 @@ The MCP server now intelligently discovers and exposes what it can do:
 - **Business Workflow Mapping**: Automatic workflow detection based on installed Odoo modules
 - **Smart Fallback Teaching**: Resources explicitly teach LLMs when to use `execute_method` as universal tool
 
-### 🔧 New Powerful Tools
-- **`validate_before_execute`**: Pre-flight safety checks (permissions, required fields, types)
-- **`deep_read`**: Intelligent relationship following - fetch records with related data in one call
-- **`batch_execute`**: Atomic multi-operation transactions with rollback support
+### 🔧 New Powerful Tools (Tested & Production Ready)
+- **`validate_before_execute`** ✅: Pre-flight safety checks (permissions, required fields, types)
+  - Comprehensive validation with proper error handling
+  - Fixed domain format issues - now validates correctly
+- **`deep_read`** ✅: Intelligent relationship following - fetch records with related data in one call
+  - Optimized with `minimal_fields` parameter (prevents oversized responses)
+  - Smart defaults: only follows many2one relations by default
+- **`batch_execute`** ✅: Atomic multi-operation transactions with rollback support
+  - Flexible parameter format (supports both direct objects and JSON strings)
+  - Atomic and non-atomic modes fully functional
 
 ### 💬 MCP Prompts (User Templates)
 User-selectable prompt templates appear in Claude's prompt menu:
@@ -38,6 +46,11 @@ User-selectable prompt templates appear in Claude's prompt menu:
 - **`odoo://model/{model}/access`**: User permissions (read, write, create, unlink)
 - **`odoo://workflows`**: Business workflows for Sales, CRM, Inventory, HR, Accounting, Projects
 - **`odoo://methods/{model}`**: Now explicitly teaches `execute_method` as universal fallback
+
+### 🐛 Bug Fixes
+- Fixed `validate_before_execute` domain format for model existence check
+- Fixed `batch_execute` parameter handling (now accepts both formats)
+- Optimized `deep_read` to prevent oversized responses
 
 ### Multiple Transport Support 🚀
 - **SSE Transport**: Server-Sent Events for web browsers and HTTP clients

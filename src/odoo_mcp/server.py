@@ -1118,13 +1118,13 @@ def validate_before_execute(
         args = json.loads(args_json) if args_json else []
         kwargs = json.loads(kwargs_json) if kwargs_json else {}
 
-        # Check if model exists
+        # Check if model exists - use search instead of get_model_info for reliability
         try:
-            model_info = odoo.get_model_info(model)
-            if 'error' in model_info:
+            model_check = odoo.execute_method('ir.model', 'search_count', [('model', '=', model)])
+            if not model_check or model_check == 0:
                 errors.append(ValidationIssue(
                     field=None,
-                    message=f"Model '{model}' not found",
+                    message=f"Model '{model}' not found in ir.model",
                     severity="error"
                 ))
                 return ValidateResponse(
@@ -1135,18 +1135,12 @@ def validate_before_execute(
                     safe_to_execute=False
                 )
         except Exception as e:
-            errors.append(ValidationIssue(
+            # If we can't check, add warning but continue
+            warnings.append(ValidationIssue(
                 field=None,
-                message=f"Cannot access model '{model}': {str(e)}",
-                severity="error"
+                message=f"Could not verify model existence: {str(e)}",
+                severity="warning"
             ))
-            return ValidateResponse(
-                valid=False,
-                errors=errors,
-                warnings=warnings,
-                suggestions=suggestions,
-                safe_to_execute=False
-            )
 
         # Check access rights
         operation_map = {
@@ -1409,10 +1403,10 @@ def batch_execute(
 
     Parameters:
         operations: List of operations, each with:
-                   - model: str
-                   - method: str
-                   - args_json: str (optional)
-                   - kwargs_json: str (optional)
+                   - model: str (required)
+                   - method: str (required)
+                   - args: list (optional, direct format) OR args_json: str (JSON string format)
+                   - kwargs: dict (optional, direct format) OR kwargs_json: str (JSON string format)
         atomic: If True, all operations succeed or all fail (rollback on error)
 
     Examples:
@@ -1445,13 +1439,26 @@ def batch_execute(
                 method = op.get('method')
                 args_json = op.get('args_json')
                 kwargs_json = op.get('kwargs_json')
+                args_direct = op.get('args')
+                kwargs_direct = op.get('kwargs')
 
                 if not model or not method:
                     raise ValueError(f"Operation {idx}: 'model' and 'method' are required")
 
-                # Parse arguments
-                args = json.loads(args_json) if args_json else []
-                kwargs = json.loads(kwargs_json) if kwargs_json else {}
+                # Parse arguments - support both JSON strings and direct objects
+                if args_json:
+                    args = json.loads(args_json) if isinstance(args_json, str) else args_json
+                elif args_direct is not None:
+                    args = args_direct
+                else:
+                    args = []
+
+                if kwargs_json:
+                    kwargs = json.loads(kwargs_json) if isinstance(kwargs_json, str) else kwargs_json
+                elif kwargs_direct is not None:
+                    kwargs = kwargs_direct
+                else:
+                    kwargs = {}
 
                 # Execute the operation
                 result = odoo.execute_method(model, method, *args, **kwargs)

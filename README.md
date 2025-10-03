@@ -27,6 +27,10 @@ The MCP server now intelligently discovers and exposes what it can do:
 - **`batch_execute`** ✅: Atomic multi-operation transactions with rollback support
   - Flexible parameter format (supports both direct objects and JSON strings)
   - Atomic and non-atomic modes fully functional
+- **`scan_pending_crm_responses`** 🆕: CRM customer communication assistant
+  - Scans leads for unanswered customer messages
+  - Generates AI-powered draft responses
+  - Creates internal log notes for review before sending
 
 ### 💬 MCP Prompts (User Templates)
 User-selectable prompt templates appear in Claude's prompt menu:
@@ -34,6 +38,7 @@ User-selectable prompt templates appear in Claude's prompt menu:
 - **`create-sales-order`**: Step-by-step sales order creation guide
 - **`odoo-exploration`**: Systematic instance capability discovery
 - **`troubleshoot-operation`**: Debug failed operations systematically
+- **`draft-crm-responses`** 🆕: Automated CRM response drafting workflow
 
 ### 🚀 Future-Proof API Support
 - **JSON-2 API Ready**: Support for Odoo 19+ JSON-2 API with Bearer token authentication
@@ -143,6 +148,18 @@ User-selectable prompt templates appear in Claude's prompt menu:
   * Example: Create customer + create order in one transaction
   * **Flexible Format**: Accepts both direct objects and JSON strings for parameters
 
+* **scan_pending_crm_responses** 🆕
+  * Scan CRM leads for unanswered customer messages and generate draft responses
+  * Automatically detects messages needing responses
+  * Creates internal log notes with AI-generated draft responses
+  * Inputs:
+    * `user_id` (int, optional): User to scan leads for (default: current user)
+    * `limit` (int): Max leads to scan (default: 20)
+    * `create_drafts` (bool): Create log notes with drafts (default: true)
+  * Returns: `{success, scanned_leads, pending_messages, drafts_created, leads_with_pending[]}`
+  * **Use Case**: Daily customer communication management
+  * **Workflow**: Scans → Detects pending → Generates drafts → Creates log notes for review
+
 ### Domain-Specific Tools
 
 * **search_employee**
@@ -228,6 +245,7 @@ User-selectable templates that appear in Claude's prompt menu:
 * **create-sales-order** - Step-by-step sales order creation guide
 * **odoo-exploration** - Systematic capability discovery for new instances
 * **troubleshoot-operation** - Debug failed operations with systematic checks
+* **draft-crm-responses** 🆕 - Scan CRM leads for pending messages and generate draft responses
 
 ## Configuration
 

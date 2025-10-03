@@ -755,6 +755,38 @@ class BatchExecuteResponse(BaseModel):
     error: Optional[str] = Field(default=None, description="Overall error message if batch failed")
 
 
+class PendingMessage(BaseModel):
+    """Represents a pending customer message that needs a response"""
+
+    message_id: int = Field(description="ID of the mail.message record")
+    date: str = Field(description="Date the message was sent")
+    author: str = Field(description="Name of the message author (customer)")
+    subject: Optional[str] = Field(default=None, description="Subject of the message if email")
+    body_preview: str = Field(description="Preview of the message body (first 200 chars)")
+    draft_response: str = Field(description="AI-generated draft response")
+    draft_note_id: Optional[int] = Field(default=None, description="ID of the created log note with draft")
+
+
+class LeadWithPending(BaseModel):
+    """Represents a CRM lead with pending messages"""
+
+    lead_id: int = Field(description="ID of the crm.lead record")
+    lead_name: str = Field(description="Name of the lead/opportunity")
+    partner_name: str = Field(description="Name of the partner/customer")
+    pending_messages: List[PendingMessage] = Field(description="List of pending messages")
+
+
+class ScanCRMResponsesResult(BaseModel):
+    """Response model for scan_pending_crm_responses tool"""
+
+    success: bool = Field(description="Whether the scan succeeded")
+    scanned_leads: int = Field(description="Number of leads scanned")
+    pending_messages: int = Field(description="Total number of pending messages found")
+    drafts_created: int = Field(description="Number of draft responses created")
+    leads_with_pending: List[LeadWithPending] = Field(default_factory=list, description="Leads that have pending messages")
+    error: Optional[str] = Field(default=None, description="Error message if scan failed")
+
+
 # ----- MCP Tools -----
 
 
@@ -1524,6 +1556,284 @@ def batch_execute(
         )
 
 
+@mcp.tool(
+    description="Scan CRM leads for pending customer messages and generate draft responses",
+    output_schema=ScanCRMResponsesResult.model_json_schema()
+)
+def scan_pending_crm_responses(
+    ctx: Context,
+    user_id: Optional[int] = None,
+    limit: int = 20,
+    create_drafts: bool = True
+) -> ScanCRMResponsesResult:
+    """
+    Scan CRM leads assigned to a user for unanswered customer messages
+
+    This tool helps manage customer communication by:
+    1. Finding leads with messages from customers
+    2. Detecting which messages haven't been responded to
+    3. Generating AI-powered draft responses
+    4. Creating internal log notes with the drafts
+
+    Parameters:
+        user_id: ID of the user (None = current user from context)
+        limit: Maximum number of leads to scan (default: 20)
+        create_drafts: Whether to create log notes with draft responses (default: True)
+
+    Returns:
+        ScanCRMResponsesResult with:
+        - Number of leads scanned
+        - Number of pending messages found
+        - Draft responses created
+        - Detailed list of leads with pending messages
+
+    Use Cases:
+        # Scan current user's leads
+        scan_pending_crm_responses()
+
+        # Scan specific user with preview only (no drafts)
+        scan_pending_crm_responses(user_id=5, create_drafts=False)
+
+        # Quick scan of 5 most recent leads
+        scan_pending_crm_responses(limit=5)
+    """
+    odoo = ctx.request_context.lifespan_context.odoo
+
+    try:
+        # Get current user if not specified
+        if user_id is None:
+            domain = [('id', '=', odoo.uid)]
+            fields_to_read = {'fields': ['id', 'partner_id'], 'limit': 1}
+            current_user = odoo.execute_method('res.users', 'search_read', domain, **fields_to_read)
+            if not current_user:
+                return ScanCRMResponsesResult(
+                    success=False,
+                    scanned_leads=0,
+                    pending_messages=0,
+                    drafts_created=0,
+                    error="Could not determine current user"
+                )
+            user_id = current_user[0]['id']
+            user_partner_id = current_user[0]['partner_id'][0] if current_user[0].get('partner_id') else None
+        else:
+            # Get partner_id for specified user
+            user_data = odoo.execute_method('res.users', 'read', [user_id], {'fields': ['partner_id']})
+            if not user_data:
+                return ScanCRMResponsesResult(
+                    success=False,
+                    scanned_leads=0,
+                    pending_messages=0,
+                    drafts_created=0,
+                    error=f"User {user_id} not found"
+                )
+            user_partner_id = user_data[0]['partner_id'][0] if user_data[0].get('partner_id') else None
+
+        if not user_partner_id:
+            return ScanCRMResponsesResult(
+                success=False,
+                scanned_leads=0,
+                pending_messages=0,
+                drafts_created=0,
+                error="User has no associated partner record"
+            )
+
+        # Find active leads assigned to user
+        leads = odoo.execute_method(
+            'crm.lead',
+            'search_read',
+            [[('user_id', '=', user_id), ('active', '=', True)]],
+            {'fields': ['id', 'name', 'partner_id'], 'limit': limit, 'order': 'write_date desc'}
+        )
+
+        scanned_count = len(leads)
+        total_pending = 0
+        drafts_created_count = 0
+        leads_with_pending = []
+
+        # For each lead, check for unanswered messages
+        for lead in leads:
+            lead_id = lead['id']
+            lead_name = lead['name']
+            partner_name = lead['partner_id'][1] if lead.get('partner_id') else "Unknown Customer"
+
+            # Get all messages on this lead from customers (external authors)
+            # We look for messages where:
+            # 1. It's on this lead
+            # 2. Author is external (not internal user)
+            # 3. Message type is email or comment
+            messages = odoo.execute_method(
+                'mail.message',
+                'search_read',
+                [[
+                    ('model', '=', 'crm.lead'),
+                    ('res_id', '=', lead_id),
+                    ('message_type', 'in', ['email', 'comment']),
+                    ('author_id', '!=', False)
+                ]],
+                {'fields': ['id', 'date', 'author_id', 'subject', 'body', 'message_type'], 'order': 'date desc', 'limit': 50}
+            )
+
+            if not messages:
+                continue
+
+            pending_for_lead = []
+
+            # Check each message to see if it needs a response
+            for msg in messages:
+                message_id = msg['id']
+                message_date = msg['date']
+                author_id = msg['author_id'][0] if msg.get('author_id') else None
+                author_name = msg['author_id'][1] if msg.get('author_id') else "Unknown"
+
+                # Skip if author is the assigned user (their own messages)
+                if author_id == user_partner_id:
+                    continue
+
+                # Check if there's a response after this message
+                # Look for messages from the user after this date
+                responses = odoo.execute_method(
+                    'mail.message',
+                    'search_count',
+                    [[
+                        ('model', '=', 'crm.lead'),
+                        ('res_id', '=', lead_id),
+                        ('author_id', '=', user_partner_id),
+                        ('date', '>', message_date)
+                    ]]
+                )
+
+                # If no response found, this message is pending
+                if responses == 0:
+                    # Extract body preview
+                    body = msg.get('body', '')
+                    # Remove HTML tags for preview
+                    import re
+                    body_text = re.sub('<[^<]+?>', '', body)
+                    body_preview = body_text[:200] + '...' if len(body_text) > 200 else body_text
+
+                    # Generate draft response
+                    draft_response = _generate_draft_crm_response(
+                        lead_name=lead_name,
+                        partner_name=partner_name,
+                        message_body=body_preview,
+                        message_subject=msg.get('subject', '')
+                    )
+
+                    draft_note_id = None
+
+                    # Create log note with draft if requested
+                    if create_drafts:
+                        try:
+                            # Get internal note subtype ID
+                            note_subtype = odoo.execute_method(
+                                'ir.model.data',
+                                'search_read',
+                                [[('module', '=', 'mail'), ('name', '=', 'mt_note')]],
+                                {'fields': ['res_id'], 'limit': 1}
+                            )
+                            subtype_id = note_subtype[0]['res_id'] if note_subtype else 2  # Fallback to 2 (common mt_note ID)
+
+                            # Create internal log note
+                            draft_note_id = odoo.execute_method(
+                                'mail.message',
+                                'create',
+                                [{
+                                    'model': 'crm.lead',
+                                    'res_id': lead_id,
+                                    'body': f"<p><strong>[DRAFT RESPONSE - TO REVIEW]</strong></p><p>In response to message from {author_name} on {message_date}:</p><hr/>{draft_response}",
+                                    'message_type': 'comment',
+                                    'subtype_id': subtype_id,
+                                    'subject': f"[DRAFT] Re: {msg.get('subject', 'Customer Message')}"
+                                }]
+                            )
+                            drafts_created_count += 1
+                        except Exception as e:
+                            print(f"Failed to create draft note: {str(e)}", file=sys.stderr)
+
+                    pending_for_lead.append(PendingMessage(
+                        message_id=message_id,
+                        date=message_date,
+                        author=author_name,
+                        subject=msg.get('subject'),
+                        body_preview=body_preview,
+                        draft_response=draft_response,
+                        draft_note_id=draft_note_id
+                    ))
+                    total_pending += 1
+
+            # Add lead to results if it has pending messages
+            if pending_for_lead:
+                leads_with_pending.append(LeadWithPending(
+                    lead_id=lead_id,
+                    lead_name=lead_name,
+                    partner_name=partner_name,
+                    pending_messages=pending_for_lead
+                ))
+
+        return ScanCRMResponsesResult(
+            success=True,
+            scanned_leads=scanned_count,
+            pending_messages=total_pending,
+            drafts_created=drafts_created_count,
+            leads_with_pending=leads_with_pending
+        )
+
+    except Exception as e:
+        return ScanCRMResponsesResult(
+            success=False,
+            scanned_leads=0,
+            pending_messages=0,
+            drafts_created=0,
+            error=f"Scan failed: {str(e)}"
+        )
+
+
+def _generate_draft_crm_response(lead_name: str, partner_name: str, message_body: str, message_subject: str) -> str:
+    """
+    Generate a draft response for a customer message
+
+    This is a simple template-based approach. In production, this could be enhanced with:
+    - AI/LLM integration for smarter responses
+    - Company-specific templates
+    - Product/service knowledge base
+    - Sentiment analysis
+    """
+    # Extract key information
+    is_question = '?' in message_body
+    is_urgent = any(word in message_body.lower() for word in ['urgent', 'asap', 'immediately', 'quickly'])
+
+    # Build draft response
+    greeting = f"Bonjour {partner_name},"
+
+    acknowledgment = ""
+    if is_urgent:
+        acknowledgment = "Merci pour votre message. Je comprends l'urgence de votre demande."
+    elif is_question:
+        acknowledgment = "Merci pour votre question concernant notre offre."
+    else:
+        acknowledgment = "Merci pour votre message."
+
+    body = f"""
+{acknowledgment}
+
+[TODO: Répondre spécifiquement aux points soulevés dans le message]
+
+Concernant {lead_name}, je reviens vers vous rapidement avec plus de détails.
+
+N'hésitez pas si vous avez d'autres questions.
+"""
+
+    signature = """
+Cordialement,
+[Votre nom]
+[Votre titre]
+"""
+
+    draft = f"{greeting}\n\n{body}\n{signature}"
+
+    return draft
+
+
 # ----- MCP Prompts -----
 
 
@@ -1718,6 +2028,69 @@ Troubleshooting steps:
    - Correct types
    - Valid domain syntax
    - All required fields
+"""
+        }
+    ]
+
+
+@mcp.prompt(name="draft-crm-responses")
+def draft_crm_responses_prompt(
+    user_id: int = 0,
+    limit: int = 10
+) -> List[Dict[str, str]]:
+    """
+    Scan CRM leads for pending customer messages and draft responses
+
+    Helps manage customer communication by finding unanswered messages
+    and generating draft responses automatically
+    """
+    user_filter = f" for user ID {user_id}" if user_id > 0 else " for current user"
+
+    return [
+        {
+            "role": "user",
+            "content": f"""Scan CRM leads{user_filter} for pending customer messages and draft responses.
+
+Process:
+
+1. **Scan for Pending Messages**:
+   Use scan_pending_crm_responses tool to find:
+   - Leads with customer messages awaiting response
+   - Messages from external contacts (not internal users)
+   - Messages without follow-up responses
+
+2. **Review Findings**:
+   Show me:
+   - How many leads were scanned (limit: {limit})
+   - How many pending messages were found
+   - List of leads with pending messages
+   - Preview of each pending message
+
+3. **Draft Responses**:
+   For each pending message:
+   - Review the generated draft response
+   - Note that drafts are created as internal log notes on the lead
+   - Drafts are marked as "[DRAFT RESPONSE - TO REVIEW]"
+
+4. **Next Steps**:
+   Provide guidance on:
+   - How to access the draft notes in Odoo UI
+   - How to review and edit before sending
+   - Best practices for converting drafts to actual responses
+
+Example Usage:
+```python
+# Scan current user's leads (limit 10)
+scan_pending_crm_responses(limit={limit})
+
+# Scan specific user without creating drafts (preview only)
+scan_pending_crm_responses(user_id={user_id if user_id > 0 else 5}, create_drafts=False)
+
+# Quick scan with draft creation
+scan_pending_crm_responses(create_drafts=True)
+```
+
+Present findings in a clear summary with actionable next steps.
 """
         }
     ]

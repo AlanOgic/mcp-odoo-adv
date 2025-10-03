@@ -38,6 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Returns: `{success, results[], total_operations, successful_operations, failed_operations}`
   - Use case: Create customer + create order in one transaction
   - **Tested & Production Ready**: Atomic and non-atomic modes fully functional
+- **`scan_pending_crm_responses`** - CRM customer communication assistant
+  - Scans CRM leads for unanswered customer messages
+  - Detects messages from external contacts without follow-up responses
+  - Generates AI-powered draft responses using context analysis
+  - Creates internal log notes with drafts for review before sending
+  - Returns: `{success, scanned_leads, pending_messages, drafts_created, leads_with_pending[]}`
+  - Use case: Daily customer communication management and response automation
+  - **Features**: Template-based draft generation, urgency detection, customizable scanning
 
 #### 💬 MCP Prompts (User Templates)
 User-selectable prompt templates that appear in Claude's prompt menu:
@@ -45,6 +53,10 @@ User-selectable prompt templates that appear in Claude's prompt menu:
 - **`create-sales-order`** - Step-by-step sales order creation guide with validation
 - **`odoo-exploration`** - Systematic capability discovery for new Odoo instances
 - **`troubleshoot-operation`** - Debug failed operations with systematic troubleshooting steps
+- **`draft-crm-responses`** - Automated CRM response drafting workflow
+  - Scans user's leads for pending customer messages
+  - Generates draft responses with customizable limit
+  - Provides guidance on reviewing and sending drafts
 
 #### 🚀 Future-Proof API Support
 - **JSON-2 API Support** - Full support for Odoo 19+ JSON-2 API

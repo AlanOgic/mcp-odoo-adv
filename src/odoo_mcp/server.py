@@ -1118,9 +1118,9 @@ def validate_before_execute(
         args = json.loads(args_json) if args_json else []
         kwargs = json.loads(kwargs_json) if kwargs_json else {}
 
-        # Check if model exists - use search instead of get_model_info for reliability
+        # Check if model exists - use search_count with proper domain format
         try:
-            model_check = odoo.execute_method('ir.model', 'search_count', [('model', '=', model)])
+            model_check = odoo.execute_method('ir.model', 'search_count', [[('model', '=', model)]])
             if not model_check or model_check == 0:
                 errors.append(ValidationIssue(
                     field=None,

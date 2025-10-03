@@ -7,7 +7,7 @@ name = "odoo-mcp"
 version = "0.0.5"
 description = "Advanced MCP Server for Odoo with Multiple Transport Support (STDIO, SSE, HTTP)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -18,7 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
 ]
-keywords = ["odoo", "mcp", "server"]
+keywords = ["odoo", "mcp", "server", "stdio", "sse", "streaming http"]
 authors = [
     {name = "Alan Ogic", email = "info@alanogic.com"}
 ]
@@ -58,7 +58,7 @@ profile = "black"
 line_length = 88
 
 [tool.mypy]
-python_version = "3.10"  # Minimum version for compatibility checking
+python_version = "3.12"  # Minimum version for compatibility checking
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

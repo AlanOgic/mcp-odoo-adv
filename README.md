@@ -8,6 +8,37 @@ This advanced version includes enhanced features, improved performance, and foll
 
 ## What's New in v0.0.5 (Unreleased)
 
+### 🧠 Self-Aware Capabilities Discovery
+The MCP server now intelligently discovers and exposes what it can do:
+- **Enhanced Schema Resources**: Complete model schemas with relationships, constraints, and field categorization
+- **Access Rights Discovery**: Real-time permission checking per model and operation
+- **Business Workflow Mapping**: Automatic workflow detection based on installed Odoo modules
+- **Smart Fallback Teaching**: Resources explicitly teach LLMs when to use `execute_method` as universal tool
+
+### 🔧 New Powerful Tools
+- **`validate_before_execute`**: Pre-flight safety checks (permissions, required fields, types)
+- **`deep_read`**: Intelligent relationship following - fetch records with related data in one call
+- **`batch_execute`**: Atomic multi-operation transactions with rollback support
+
+### 💬 MCP Prompts (User Templates)
+User-selectable prompt templates appear in Claude's prompt menu:
+- **`search-customers`**: Customer search with location filters
+- **`create-sales-order`**: Step-by-step sales order creation guide
+- **`odoo-exploration`**: Systematic instance capability discovery
+- **`troubleshoot-operation`**: Debug failed operations systematically
+
+### 🚀 Future-Proof API Support
+- **JSON-2 API Ready**: Support for Odoo 19+ JSON-2 API with Bearer token authentication
+- **Migration Path**: Smooth transition from JSON-RPC (deprecated in Odoo 20, fall 2026)
+- **Dual API Support**: Both `json-rpc` and `json-2` work simultaneously
+- **Environment Variables**: `ODOO_API_VERSION`, `ODOO_API_KEY`
+
+### 📊 Enhanced Resources
+- **`odoo://model/{model}/schema`**: Complete schema (fields, relationships, required/readonly/computed)
+- **`odoo://model/{model}/access`**: User permissions (read, write, create, unlink)
+- **`odoo://workflows`**: Business workflows for Sales, CRM, Inventory, HR, Accounting, Projects
+- **`odoo://methods/{model}`**: Now explicitly teaches `execute_method` as universal fallback
+
 ### Multiple Transport Support 🚀
 - **SSE Transport**: Server-Sent Events for web browsers and HTTP clients
 - **Streamable HTTP**: Bidirectional streaming for API integrations
@@ -44,78 +75,136 @@ This advanced version includes enhanced features, improved performance, and foll
 
 ## Tools
 
-* **execute_method**
-  * Execute a custom method on an Odoo model
+### Core Tools
+
+* **execute_method** ⚡ UNIVERSAL TOOL
+  * Execute ANY Odoo method on ANY model - your fallback for everything
+  * **Use this when**: No specialized tool exists for what you need
   * Inputs:
-    * `model` (string): The model name (e.g., 'res.partner')
-    * `method` (string): Method name to execute
-    * `args` (optional array): Positional arguments
-    * `kwargs` (optional object): Keyword arguments
-  * Returns: Dictionary with the method result and success indicator
+    * `model` (string): The model name (e.g., 'res.partner', 'sale.order', 'crm.lead')
+    * `method` (string): Method name (e.g., 'create', 'search_read', 'write', 'action_confirm')
+    * `args_json` (string): JSON string of positional arguments
+    * `kwargs_json` (string): JSON string of keyword arguments
+  * Returns: `{success, result, error}`
+  * Examples:
+    * Create customer: `execute_method(model='res.partner', method='create', args_json='[{"name": "Acme Corp"}]')`
+    * Search: `execute_method(model='res.partner', method='search_read', args_json='[[["customer_rank", ">", 0]]]')`
+    * Update: `execute_method(model='res.partner', method='write', args_json='[[1], {"phone": "+123"}]')`
+
+### Advanced Tools
+
+* **validate_before_execute**
+  * Pre-flight safety check before operations
+  * Validates: Model exists, permissions, required fields, field types
+  * Inputs: `model`, `method`, `args_json`, `kwargs_json` (same as execute_method)
+  * Returns: `{valid, errors[], warnings[], suggestions[], safe_to_execute}`
+  * **Best Practice**: Always validate before `create` or `write` operations
+
+* **deep_read**
+  * Fetch record with related data in one intelligent query
+  * Auto-follows relationships (many2one, one2many, many2many)
+  * Inputs:
+    * `model` (string): Model name
+    * `record_id` (int): Record ID to fetch
+    * `follow_relations` (optional array): Specific fields to follow (default: all many2one)
+    * `depth` (int): How deep to follow (1 = direct, 2 = relations of relations)
+  * Returns: `{success, record, related_records{}, error}`
+  * Example: Get sales order with customer + lines + products in one call
+
+* **batch_execute**
+  * Execute multiple operations in atomic transaction
+  * All succeed or all rollback (when atomic=true)
+  * Inputs:
+    * `operations` (array): List of {model, method, args_json, kwargs_json}
+    * `atomic` (bool): Transaction mode (default: true)
+  * Returns: `{success, results[], total_operations, successful_operations, failed_operations}`
+  * Example: Create customer + create order in one transaction
+
+### Domain-Specific Tools
 
 * **search_employee**
-  * Search for employees by name
-  * Inputs:
-    * `name` (string): The name (or part of the name) to search for
-    * `limit` (optional number): The maximum number of results to return (default 20)
-  * Returns: Object containing success indicator, list of matching employee names and IDs, and any error message
+  * Search for employees by name (convenience wrapper)
+  * Inputs: `name` (string), `limit` (int, default: 20)
+  * Returns: `{success, result[], error}`
 
 * **search_holidays**
-  * Searches for holidays within a specified date range
-  * Inputs:
-    * `start_date` (string): Start date in YYYY-MM-DD format
-    * `end_date` (string): End date in YYYY-MM-DD format
-    * `employee_id` (optional number): Optional employee ID to filter holidays
-  * Returns: Object containing success indicator, list of holidays found, and any error message
+  * Search holidays within date range (convenience wrapper)
+  * Inputs: `start_date` (YYYY-MM-DD), `end_date` (YYYY-MM-DD), `employee_id` (optional int)
+  * Returns: `{success, result[], error}`
 
 ## Resources
 
-MCP resources provide URI-based access to Odoo data. FastMCP automatically categorizes them into **Resources** (static) and **Resource Templates** (parameterized).
+MCP resources provide URI-based discovery and context. The LLM reads these to understand capabilities.
 
-### Static Resources
+### Discovery Resources
 
 * **odoo://models**
   * Lists all available models in the Odoo system
   * Priority: 0.9 (high - essential for discovery)
-  * Returns: JSON array of model information
+  * Returns: `{model_names[], models_details{}}`
 
 * **odoo://server/info**
-  * Get Odoo server metadata (version, database, installed modules)
-  * Priority: 0.5 (useful for context)
-  * Returns: JSON object with server information
+  * Server metadata: version, database, installed modules
+  * Priority: 0.5
+  * Returns: `{database, odoo_version, installed_modules_count, installed_modules[]}`
 
-### Resource Templates (Parameterized)
-
-* **odoo://model/{model_name}**
-  * Get information about a specific model including fields
+* **odoo://workflows**
+  * Business workflows based on installed modules
   * Priority: 0.8
-  * Example: `odoo://model/res.partner`
-  * Returns: JSON object with model metadata and field definitions
+  * Auto-detects: Sales, CRM, Inventory, HR, Accounting, Projects
+  * Returns: `{installed_modules[], available_workflows{sales, crm, inventory, hr, accounting, projects}}`
+  * Each workflow includes: steps, models, method names
+
+### Schema Resources (Parameterized)
+
+* **odoo://model/{model_name}/schema** 🆕
+  * Complete schema with relationships and categorization
+  * Priority: 0.85
+  * Example: `odoo://model/sale.order/schema`
+  * Returns: `{model, fields{}, relationships{}, required_fields[], readonly_fields[], computed_fields[]}`
+
+* **odoo://model/{model_name}/access** 🆕
+  * User permissions for current user
+  * Priority: 0.7
+  * Returns: `{model, access_rights{read, write, create, unlink}}`
+  * Note: Model-level permissions; record rules may further restrict
 
 * **odoo://fields/{model_name}**
-  * Get just field definitions for a model (lighter than full model info)
+  * Field definitions (lighter than full schema)
   * Priority: 0.75
   * Example: `odoo://fields/sale.order`
-  * Returns: JSON object with field definitions
+  * Returns: Field definitions dictionary
 
 * **odoo://methods/{model_name}**
-  * List available Odoo ORM methods with descriptions and parameters
+  * Available ORM methods with execute_method examples
   * Priority: 0.7
-  * Includes usage examples for execute_method tool
-  * Example: `odoo://methods/res.partner`
-  * Returns: JSON object with read/write methods catalog
+  * **Explicitly teaches** using `execute_method` as fallback
+  * Returns: `{read_methods[], write_methods[], universal_tool{}, example{}}`
+
+* **odoo://model/{model_name}**
+  * Basic model info with fields
+  * Priority: 0.8
+  * Returns: Model metadata + field definitions
 
 * **odoo://record/{model_name}/{record_id}**
-  * Get a specific record by ID
+  * Specific record by ID
   * Priority: 0.7
   * Example: `odoo://record/res.partner/1`
-  * Returns: JSON object with record data
 
 * **odoo://search/{model_name}/{domain}**
-  * Search for records that match a domain
+  * Search records matching domain
   * Priority: 0.6
-  * Example: `odoo://search/res.partner/[["is_company","=",true]]`
-  * Returns: JSON array of matching records (limited to 10 by default)
+  * Example: `odoo://search/res.partner/[["customer_rank",">",0]]`
+  * Returns: Up to 10 matching records
+
+## Prompts
+
+User-selectable templates that appear in Claude's prompt menu:
+
+* **search-customers** - Customer search with city/country filters
+* **create-sales-order** - Step-by-step sales order creation guide
+* **odoo-exploration** - Systematic capability discovery for new instances
+* **troubleshoot-operation** - Debug failed operations with systematic checks
 
 ## Configuration
 
@@ -136,10 +225,26 @@ MCP resources provide URI-based access to Odoo data. FastMCP automatically categ
    * `ODOO_URL`: Your Odoo server URL
    * `ODOO_DB`: Database name
    * `ODOO_USERNAME`: Login username
-   * `ODOO_PASSWORD`: Password or API key
+   * `ODOO_PASSWORD`: Password (for JSON-RPC, deprecated in Odoo 20)
+   * `ODOO_API_KEY`: API key for JSON-2 API (Odoo 19+, recommended)
+   * `ODOO_API_VERSION`: `json-rpc` (default) or `json-2` (Odoo 19+)
    * `ODOO_TIMEOUT`: Connection timeout in seconds (default: 30)
    * `ODOO_VERIFY_SSL`: Whether to verify SSL certificates (default: true)
    * `HTTP_PROXY`: Force the ODOO connection to use an HTTP proxy
+
+### Odoo 19+ JSON-2 API (Recommended)
+
+For better security with Odoo 19+, use API key authentication:
+
+```bash
+export ODOO_API_VERSION=json-2
+export ODOO_API_KEY=your_api_key_here  # Generate in Odoo user preferences
+```
+
+The JSON-2 API offers:
+- Bearer token authentication (more secure)
+- Better performance
+- Forward compatibility (JSON-RPC deprecated in Odoo 20)
 
 ### Usage with Claude Desktop
 
@@ -293,29 +398,31 @@ When using the MCP tools for Odoo, pay attention to these parameter formatting g
 
 ## Roadmap
 
-See our planned improvements in the [dev branch](https://github.com/AlanOgic/mcp-odoo-adv/tree/dev):
-
-### Completed ✅
+### Completed in v0.0.5 ✅
+- [x] **Self-Aware Capabilities**: Schema, access, workflow resources
+- [x] **Advanced Tools**: validate_before_execute, deep_read, batch_execute
+- [x] **MCP Prompts**: User-selectable workflow templates
+- [x] **JSON-2 API Support**: Future-proof for Odoo 19+
 - [x] **Multiple Transports**: STDIO, SSE, and Streamable HTTP support
 - [x] **JSON-RPC Support**: ~75% faster than XML-RPC (617 vs 353 req/sec)
 
 ### High Priority
-- [ ] **Prompts**: Business workflow templates (sales analysis, inventory check, etc.)
 - [ ] **Context Logging**: Structured logging for AI debugging (ctx.info, ctx.debug)
 - [ ] **Progress Reporting**: Real-time progress for long operations
 - [ ] **Error Codes**: Actionable error codes for better AI responses
 
 ### Quality Improvements
-- [ ] **Input Validation**: Systematic validation and sanitization
-- [ ] **Better Documentation**: Usage examples in all docstrings
+- [ ] **Input Validation**: Enhanced systematic validation
+- [ ] **Better Documentation**: More usage examples
 - [ ] **Comprehensive Test Suite**: Unit and integration tests
+- [ ] **Performance Benchmarks**: Tool execution profiling
 
 ### Advanced Features
 - [ ] **Resource Subscriptions**: Real-time update notifications
 - [ ] **Rate Limiting**: Production safety and abuse prevention
 - [ ] **Health Check Tool**: Monitoring and deployment support
-- [ ] **Caching Layer**: Performance optimization
-- [ ] **Batch Operations**: Multi-record operations tool
+- [ ] **Caching Layer**: Resource caching for performance
+- [ ] **Bulk Import/Export**: CSV/Excel data tools
 
 ## Contributing
 

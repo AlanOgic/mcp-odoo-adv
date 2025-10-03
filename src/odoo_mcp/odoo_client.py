@@ -13,14 +13,16 @@ import requests
 
 
 class OdooClient:
-    """Client for interacting with Odoo via JSON-RPC"""
+    """Client for interacting with Odoo via JSON-RPC or JSON-2 API"""
 
     def __init__(
         self,
         url,
         db,
         username,
-        password,
+        password=None,
+        api_key=None,
+        api_version="json-rpc",
         timeout=30,
         verify_ssl=True,
     ):
@@ -31,9 +33,16 @@ class OdooClient:
             url: Odoo server URL (with or without protocol)
             db: Database name
             username: Login username
-            password: Login password
+            password: Login password (for JSON-RPC, deprecated in Odoo 20)
+            api_key: API key for JSON-2 API (Odoo 19+, Bearer token)
+            api_version: "json-rpc" (default, current) or "json-2" (Odoo 19+)
             timeout: Connection timeout in seconds
             verify_ssl: Whether to verify SSL certificates
+
+        Note:
+            - JSON-RPC API is deprecated and will be removed in Odoo 20 (fall 2026)
+            - JSON-2 API requires api_key instead of password
+            - Use api_key authentication for better security
         """
         # Ensure URL has a protocol
         if not re.match(r"^https?://", url):
@@ -46,7 +55,17 @@ class OdooClient:
         self.db = db
         self.username = username
         self.password = password
+        self.api_key = api_key
+        self.api_version = api_version
         self.uid = None
+
+        # Validate API version and credentials
+        if api_version == "json-2":
+            if not api_key:
+                raise ValueError("api_key is required for JSON-2 API (Odoo 19+)")
+        else:  # json-rpc
+            if not password:
+                raise ValueError("password is required for JSON-RPC API")
 
         # Set timeout and SSL verification
         self.timeout = timeout
@@ -55,6 +74,12 @@ class OdooClient:
         # Setup session
         self.session = requests.Session()
         self.session.verify = verify_ssl
+
+        # Configure headers for JSON-2 API
+        if api_version == "json-2":
+            self.session.headers['Authorization'] = f'Bearer {api_key}'
+            self.session.headers['X-Odoo-Database'] = db
+            self.session.headers['Content-Type'] = 'application/json'
 
         # HTTP proxy support
         proxy = os.environ.get("HTTP_PROXY")
@@ -65,14 +90,18 @@ class OdooClient:
         parsed_url = urllib.parse.urlparse(self.url)
         self.hostname = parsed_url.netloc
 
-        # JSON-RPC endpoint
+        # JSON-RPC endpoint (for legacy API)
         self.jsonrpc_url = f"{self.url}/jsonrpc"
 
-        # Request ID counter
+        # JSON-2 API base URL
+        self.json2_base_url = f"{self.url}/api/v2"
+
+        # Request ID counter (for JSON-RPC)
         self._request_id = 0
 
-        # Connect
-        self._connect()
+        # Connect (only for JSON-RPC, JSON-2 uses Bearer token)
+        if api_version == "json-rpc":
+            self._connect()
 
     def _jsonrpc_call(self, service: str, method: str, *args) -> Any:
         """
@@ -156,12 +185,37 @@ class OdooClient:
             raise ValueError(f"Failed to authenticate with Odoo: {str(e)}")
 
     def _execute(self, model, method, *args, **kwargs):
-        """Execute a method on an Odoo model using JSON-RPC"""
-        return self._jsonrpc_call(
-            "object", "execute_kw",
-            self.db, self.uid, self.password,
-            model, method, args, kwargs
-        )
+        """Execute a method on an Odoo model using JSON-RPC or JSON-2 API"""
+        if self.api_version == "json-2":
+            # JSON-2 API format
+            url = f"{self.json2_base_url}/{model}/{method}"
+            payload = {
+                "args": list(args) if args else [],
+                "kwargs": kwargs if kwargs else {}
+            }
+
+            try:
+                response = self.session.post(
+                    url,
+                    json=payload,
+                    timeout=self.timeout
+                )
+                response.raise_for_status()
+                return response.json()
+
+            except requests.exceptions.Timeout as e:
+                raise TimeoutError(f"Request timeout after {self.timeout}s: {str(e)}")
+            except requests.exceptions.ConnectionError as e:
+                raise ConnectionError(f"Failed to connect to Odoo server: {str(e)}")
+            except requests.exceptions.RequestException as e:
+                raise ValueError(f"Request failed: {str(e)}")
+        else:
+            # JSON-RPC format (legacy)
+            return self._jsonrpc_call(
+                "object", "execute_kw",
+                self.db, self.uid, self.password,
+                model, method, args, kwargs
+            )
 
     def execute_method(self, model, method, *args, **kwargs):
         """
@@ -391,10 +445,24 @@ def get_odoo_client():
     """
     Get a configured Odoo client instance
 
+    Supports both JSON-RPC (legacy) and JSON-2 API (Odoo 19+)
+
+    Environment variables:
+        ODOO_API_VERSION: "json-rpc" (default) or "json-2"
+        ODOO_API_KEY: API key for JSON-2 (replaces password)
+        ODOO_PASSWORD: Password for JSON-RPC (deprecated in Odoo 20)
+
     Returns:
         OdooClient: A configured Odoo client instance
     """
     config = load_config()
+
+    # Get API version preference
+    api_version = os.environ.get("ODOO_API_VERSION", "json-rpc").lower()
+
+    # Get authentication credentials
+    api_key = os.environ.get("ODOO_API_KEY")
+    password = config.get("password") or os.environ.get("ODOO_PASSWORD")
 
     # Get additional options from environment variables
     timeout = int(
@@ -407,6 +475,11 @@ def get_odoo_client():
     print(f"  URL: {config['url']}", file=sys.stderr)
     print(f"  Database: {config['db']}", file=sys.stderr)
     print(f"  Username: {config['username']}", file=sys.stderr)
+    print(f"  API Version: {api_version}", file=sys.stderr)
+    if api_version == "json-2":
+        print(f"  Auth: API Key ({'set' if api_key else 'NOT SET'})", file=sys.stderr)
+    else:
+        print(f"  Auth: Password ({'set' if password else 'NOT SET'})", file=sys.stderr)
     print(f"  Timeout: {timeout}s", file=sys.stderr)
     print(f"  Verify SSL: {verify_ssl}", file=sys.stderr)
 
@@ -414,7 +487,9 @@ def get_odoo_client():
         url=config["url"],
         db=config["db"],
         username=config["username"],
-        password=config["password"],
+        password=password,
+        api_key=api_key,
+        api_version=api_version,
         timeout=timeout,
         verify_ssl=verify_ssl,
     )

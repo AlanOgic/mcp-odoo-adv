@@ -10,7 +10,7 @@ build/
 *.egg
 
 # Virtual environments
-venv/
+8009/
 env/
 ENV/
 
@@ -31,6 +31,8 @@ logs/
 .env.test.local
 .env.production.local
 .claude/agents
+.venv
+
 # Odoo specific
 odoo_config.json
 

@@ -1,6 +1,6 @@
-# Supports Python 3.10-3.13, using 3.10 as stable baseline
+# Supports Python 3.10-3.13, using 3.12 as stable baseline
 # To use Python 3.13: docker build --build-arg PYTHON_VERSION=3.13 -t alanogic/mcp-odoo-adv:latest .
-ARG PYTHON_VERSION=3.10
+ARG PYTHON_VERSION=3.12
 FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app
@@ -12,8 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only dependency files first (for better caching)
-COPY pyproject.toml /app/
-COPY odoo_config.json /app/
+COPY pyproject.toml README.md /app/
 
 # Install Python dependencies (cached layer if pyproject.toml unchanged)
 RUN pip install --no-cache-dir "fastmcp[cli]>=2.12.0" requests

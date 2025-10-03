@@ -7,7 +7,7 @@ suitable for API clients and programmatic integrations.
 
 Environment Variables:
     MCP_HOST: Host to bind to (default: 0.0.0.0)
-    MCP_PORT: Port to listen on (default: 8000)
+    MCP_PORT: Port to listen on (default: 8008)
     MCP_HTTP_PATH: HTTP endpoint path (default: /mcp)
     ODOO_URL: Odoo server URL
     ODOO_DB: Database name
@@ -24,7 +24,7 @@ Usage:
     MCP_HOST=localhost MCP_PORT=9000 python run_server_http.py
 
     # Docker
-    docker run -p 8000:8000 alanogic/mcp-odoo-adv:http
+    docker run -p 8008:8008 alanogic/mcp-odoo-adv:http
 """
 
 import os
@@ -45,14 +45,29 @@ class TeeLogger:
         self.terminal = sys.stderr
         self.log = open(file_path, "a")
 
+    def __del__(self):
+        """Ensure file is closed when TeeLogger is destroyed"""
+        if hasattr(self, 'log') and self.log:
+            try:
+                self.log.close()
+            except:
+                pass  # Ignore errors during cleanup
+
     def write(self, message):
         self.terminal.write(message)
-        self.log.write(message)
-        self.log.flush()
+        if self.log and not self.log.closed:
+            self.log.write(message)
+            self.log.flush()
 
     def flush(self):
         self.terminal.flush()
-        self.log.flush()
+        if self.log and not self.log.closed:
+            self.log.flush()
+
+    def close(self):
+        """Explicitly close the log file"""
+        if self.log and not self.log.closed:
+            self.log.close()
 
 
 sys.stderr = TeeLogger(log_file)
@@ -64,7 +79,7 @@ from src.odoo_mcp.server import mcp
 
 # Get HTTP configuration from environment
 host = os.environ.get("MCP_HOST", "0.0.0.0")
-port = int(os.environ.get("MCP_PORT", "8000"))
+port = int(os.environ.get("MCP_PORT", "8008"))
 path = os.environ.get("MCP_HTTP_PATH", "/mcp")
 
 print(f"Streamable HTTP Configuration:")

@@ -14,6 +14,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Union, cast
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
+from .config import config
 from .odoo_client import OdooClient, get_odoo_client
 
 
@@ -658,44 +659,6 @@ class SearchDomain(BaseModel):
         return [condition.to_tuple() for condition in self.conditions]
 
 
-class EmployeeSearchResult(BaseModel):
-    """Represents a single employee search result."""
-
-    id: int = Field(description="Employee ID")
-    name: str = Field(description="Employee name")
-
-
-class SearchEmployeeResponse(BaseModel):
-    """Response model for the search_employee tool."""
-
-    success: bool = Field(description="Indicates if the search was successful")
-    result: Optional[List[EmployeeSearchResult]] = Field(
-        default=None, description="List of employee search results"
-    )
-    error: Optional[str] = Field(default=None, description="Error message, if any")
-
-
-class Holiday(BaseModel):
-    """Represents a single holiday."""
-
-    display_name: str = Field(description="Display name of the holiday")
-    start_datetime: str = Field(description="Start date and time of the holiday")
-    stop_datetime: str = Field(description="End date and time of the holiday")
-    employee_id: List[Union[int, str]] = Field(
-        description="Employee ID associated with the holiday"
-    )
-    name: str = Field(description="Name of the holiday")
-    state: str = Field(description="State of the holiday")
-
-
-class SearchHolidaysResponse(BaseModel):
-    """Response model for the search_holidays tool."""
-
-    success: bool = Field(description="Indicates if the search was successful")
-    result: Optional[List[Holiday]] = Field(
-        default=None, description="List of holidays found"
-    )
-    error: Optional[str] = Field(default=None, description="Error message, if any")
 
 
 class ExecuteMethodResponse(BaseModel):
@@ -706,42 +669,6 @@ class ExecuteMethodResponse(BaseModel):
         default=None, description="Result of the method execution"
     )
     error: Optional[str] = Field(default=None, description="Error message, if any")
-
-
-class ValidationIssue(BaseModel):
-    """Represents a single validation issue"""
-
-    field: Optional[str] = Field(default=None, description="Field name related to the issue")
-    message: str = Field(description="Description of the issue")
-    severity: str = Field(description="Severity level: error, warning, info")
-
-
-class ValidateResponse(BaseModel):
-    """Response model for validate_before_execute tool"""
-
-    valid: bool = Field(description="Whether the operation is valid and safe to execute")
-    errors: List[ValidationIssue] = Field(default_factory=list, description="Validation errors that prevent execution")
-    warnings: List[ValidationIssue] = Field(default_factory=list, description="Warnings that don't prevent execution")
-    suggestions: List[str] = Field(default_factory=list, description="Suggestions for improvement")
-    safe_to_execute: bool = Field(description="Whether it's safe to execute this operation")
-
-
-class DeepReadResponse(BaseModel):
-    """Response model for deep_read tool"""
-
-    success: bool = Field(description="Whether the operation succeeded")
-    record: Optional[Dict[str, Any]] = Field(default=None, description="Main record data")
-    related_records: Optional[Dict[str, Any]] = Field(default=None, description="Related records organized by relation field")
-    error: Optional[str] = Field(default=None, description="Error message if failed")
-
-
-class BatchOperation(BaseModel):
-    """Represents a single operation in a batch"""
-
-    model: str = Field(description="Model name")
-    method: str = Field(description="Method to call")
-    args_json: Optional[str] = Field(default=None, description="Arguments as JSON string")
-    kwargs_json: Optional[str] = Field(default=None, description="Keyword arguments as JSON string")
 
 
 class BatchExecuteResponse(BaseModel):
@@ -755,60 +682,34 @@ class BatchExecuteResponse(BaseModel):
     error: Optional[str] = Field(default=None, description="Overall error message if batch failed")
 
 
-class PendingMessage(BaseModel):
-    """Represents a pending customer message that needs a response"""
-
-    message_id: int = Field(description="ID of the mail.message record")
-    date: str = Field(description="Date the message was sent")
-    author: str = Field(description="Name of the message author (customer)")
-    subject: Optional[str] = Field(default=None, description="Subject of the message if email")
-    body_preview: str = Field(description="Preview of the message body (first 200 chars)")
-    draft_response: str = Field(description="AI-generated draft response")
-    draft_note_id: Optional[int] = Field(default=None, description="ID of the created log note with draft")
-
-
-class LeadWithPending(BaseModel):
-    """Represents a CRM lead with pending messages"""
-
-    lead_id: int = Field(description="ID of the crm.lead record")
-    lead_name: str = Field(description="Name of the lead/opportunity")
-    partner_name: str = Field(description="Name of the partner/customer")
-    pending_messages: List[PendingMessage] = Field(description="List of pending messages")
-
-
-class ScanCRMResponsesResult(BaseModel):
-    """Response model for scan_pending_crm_responses tool"""
-
-    success: bool = Field(description="Whether the scan succeeded")
-    scanned_leads: int = Field(description="Number of leads scanned")
-    pending_messages: int = Field(description="Total number of pending messages found")
-    drafts_created: int = Field(description="Number of draft responses created")
-    leads_with_pending: List[LeadWithPending] = Field(default_factory=list, description="Leads that have pending messages")
-    error: Optional[str] = Field(default=None, description="Error message if scan failed")
-
-
 # ----- MCP Tools -----
 
 
 @mcp.tool(
     description="""⚡ UNIVERSAL TOOL - Execute ANY Odoo method on ANY model
 
-    This is your FALLBACK tool when specialized tools don't exist.
+    This is THE CORE tool. Full Odoo API access. No limitations.
     Can call ANY of the hundreds of Odoo methods across all models.
 
     Common use cases:
     - Creating records: method='create'
     - Searching: method='search_read'
+    - Reading records: method='read'
     - Updating: method='write'
     - Deleting: method='unlink'
-    - Custom methods: method='your_custom_method'
+    - Custom methods: method='action_confirm', 'action_post', etc.
 
-    If you think "Odoo can do X but there's no specialized tool" → USE THIS!
+    🛡️ SMART LIMITS (to prevent massive data returns):
+    - Default limit: 100 records (if not specified)
+    - Maximum limit: 1000 records (hard cap)
+    - Override: Set "limit" in kwargs_json to your desired value
+    - Unlimited: Set "limit": 0 or "limit": false (will warn)
 
-    Before using, consider checking:
+    Before using, check:
     - odoo://model/{model}/schema for field definitions
     - odoo://methods/{model} for available methods
-    - validate_before_execute for safety checks
+
+    Odoo provides excellent error messages for validation - no pre-check needed!
     """,
     output_schema=ExecuteMethodResponse.model_json_schema()
 )
@@ -896,6 +797,10 @@ def execute_method(
                     return {"success": False, "error": f"kwargs_json must be a JSON object, got: {type(kwargs).__name__}"}
             except json.JSONDecodeError as e:
                 return {"success": False, "error": f"Invalid JSON in kwargs_json: {str(e)}"}
+
+        # Apply smart limits to prevent massive data returns
+        DEFAULT_LIMIT = config.DEFAULT_QUERY_LIMIT
+        MAX_LIMIT = config.MAX_QUERY_LIMIT
 
         # Special handling for search methods like search, search_count, search_read
         search_methods = ["search", "search_count", "search_read"]
@@ -1000,438 +905,37 @@ def execute_method(
                 # Log for debugging
                 print(f"Executing {method} with normalized domain: {domain_list}", file=sys.stderr)
 
+        # Apply smart limits for search methods (can be overridden in kwargs)
+        if method in search_methods:
+            # Check if user provided a limit
+            if 'limit' not in kwargs:
+                # No limit provided - apply safe default
+                kwargs['limit'] = DEFAULT_LIMIT
+                print(f"⚠️  No limit specified for {method}, applying default limit={DEFAULT_LIMIT}", file=sys.stderr)
+            elif kwargs.get('limit', 0) > MAX_LIMIT:
+                # User requested too much - cap it
+                original_limit = kwargs['limit']
+                kwargs['limit'] = MAX_LIMIT
+                print(f"⚠️  Requested limit={original_limit} exceeds maximum, capping to limit={MAX_LIMIT}", file=sys.stderr)
+            elif kwargs.get('limit', 0) == 0 or kwargs.get('limit') is False:
+                # User explicitly wants unlimited (limit=0 or limit=False) - allow but warn
+                print(f"⚠️  WARNING: Unlimited query requested! This may return massive datasets.", file=sys.stderr)
+
+        # Apply limits for read method too
+        if method == 'read' and args:
+            # read(ids, fields) - check if ids list is huge
+            if isinstance(args[0], list) and len(args[0]) > MAX_LIMIT:
+                print(f"⚠️  WARNING: Reading {len(args[0])} records at once! Consider batching.", file=sys.stderr)
+
         result = odoo.execute_method(model, method, *args, **kwargs)
+
+        # Warn if result is very large
+        if isinstance(result, list) and len(result) >= MAX_LIMIT:
+            print(f"⚠️  Large result set returned: {len(result)} records. Consider adding filters.", file=sys.stderr)
+
         return {"success": True, "result": result}
     except Exception as e:
         return {"success": False, "error": str(e)}
-
-
-@mcp.tool(
-    description="Search for employees by name",
-    output_schema=SearchEmployeeResponse.model_json_schema()
-)
-def search_employee(
-    ctx: Context,
-    name: str,
-    limit: int = 20,
-) -> SearchEmployeeResponse:
-    """
-    Search for employees by name using Odoo's name_search method.
-
-    Parameters:
-        name: The name (or part of the name) to search for.
-        limit: The maximum number of results to return (default 20).
-
-    Returns:
-        SearchEmployeeResponse containing results or error information.
-    """
-    odoo = ctx.request_context.lifespan_context.odoo
-    model = "hr.employee"
-    method = "name_search"
-
-    args = []
-    kwargs = {"name": name, "limit": limit}
-
-    try:
-        result = odoo.execute_method(model, method, *args, **kwargs)
-        parsed_result = [
-            EmployeeSearchResult(id=item[0], name=item[1]) for item in result
-        ]
-        return SearchEmployeeResponse(success=True, result=parsed_result)
-    except Exception as e:
-        return SearchEmployeeResponse(success=False, error=str(e))
-
-
-@mcp.tool(
-    description="Search for holidays within a date range",
-    output_schema=SearchHolidaysResponse.model_json_schema()
-)
-def search_holidays(
-    ctx: Context,
-    start_date: str,
-    end_date: str,
-    employee_id: Optional[int] = None,
-) -> SearchHolidaysResponse:
-    """
-    Searches for holidays within a specified date range.
-
-    Parameters:
-        start_date: Start date in YYYY-MM-DD format.
-        end_date: End date in YYYY-MM-DD format.
-        employee_id: Optional employee ID to filter holidays.
-
-    Returns:
-        SearchHolidaysResponse:  Object containing the search results.
-    """
-    odoo = ctx.request_context.lifespan_context.odoo
-
-    # Validate date format using datetime
-    try:
-        datetime.strptime(start_date, "%Y-%m-%d")
-    except ValueError:
-        return SearchHolidaysResponse(
-            success=False, error="Invalid start_date format. Use YYYY-MM-DD."
-        )
-    try:
-        datetime.strptime(end_date, "%Y-%m-%d")
-    except ValueError:
-        return SearchHolidaysResponse(
-            success=False, error="Invalid end_date format. Use YYYY-MM-DD."
-        )
-
-    # Calculate adjusted start_date (subtract one day)
-    start_date_dt = datetime.strptime(start_date, "%Y-%m-%d")
-    adjusted_start_date_dt = start_date_dt - timedelta(days=1)
-    adjusted_start_date = adjusted_start_date_dt.strftime("%Y-%m-%d")
-
-    # Build the domain
-    domain = [
-        "&",
-        ["start_datetime", "<=", f"{end_date} 22:59:59"],
-        # Use adjusted date
-        ["stop_datetime", ">=", f"{adjusted_start_date} 23:00:00"],
-    ]
-    if employee_id:
-        domain.append(
-            ["employee_id", "=", employee_id],
-        )
-
-    try:
-        holidays = odoo.search_read(
-            model_name="hr.leave.report.calendar",
-            domain=domain,
-        )
-        parsed_holidays = [Holiday(**holiday) for holiday in holidays]
-        return SearchHolidaysResponse(success=True, result=parsed_holidays)
-
-    except Exception as e:
-        return SearchHolidaysResponse(success=False, error=str(e))
-
-
-@mcp.tool(
-    description="Validate an operation before executing it - Pre-flight check for safety",
-    output_schema=ValidateResponse.model_json_schema()
-)
-def validate_before_execute(
-    ctx: Context,
-    model: str,
-    method: str,
-    args_json: str = None,
-    kwargs_json: str = None
-) -> ValidateResponse:
-    """
-    Validates an Odoo operation before execution
-
-    Checks:
-    - Model exists
-    - User has permission for the operation
-    - Required fields are present (for create/write)
-    - Field types are correct
-    - Constraints are met
-
-    Use this before execute_method to catch errors early!
-
-    Parameters:
-        model: Model name (e.g., 'res.partner')
-        method: Method to call (e.g., 'create', 'write', 'search_read')
-        args_json: JSON string of arguments
-        kwargs_json: JSON string of keyword arguments
-
-    Returns:
-        ValidateResponse with validation results and safety recommendation
-    """
-    odoo = ctx.request_context.lifespan_context.odoo
-    errors = []
-    warnings = []
-    suggestions = []
-
-    try:
-        # Parse arguments
-        args = json.loads(args_json) if args_json else []
-        kwargs = json.loads(kwargs_json) if kwargs_json else {}
-
-        # Check if model exists - use search_count with proper domain format
-        try:
-            model_check = odoo.execute_method('ir.model', 'search_count', [[('model', '=', model)]])
-            if not model_check or model_check == 0:
-                errors.append(ValidationIssue(
-                    field=None,
-                    message=f"Model '{model}' not found in ir.model",
-                    severity="error"
-                ))
-                return ValidateResponse(
-                    valid=False,
-                    errors=errors,
-                    warnings=warnings,
-                    suggestions=suggestions,
-                    safe_to_execute=False
-                )
-        except Exception as e:
-            # If we can't check, add warning but continue
-            warnings.append(ValidationIssue(
-                field=None,
-                message=f"Could not verify model existence: {str(e)}",
-                severity="warning"
-            ))
-
-        # Check access rights
-        operation_map = {
-            'create': 'create',
-            'write': 'write',
-            'unlink': 'unlink',
-            'search': 'read',
-            'read': 'read',
-            'search_read': 'read'
-        }
-        required_permission = operation_map.get(method, 'read')
-
-        try:
-            has_access = odoo.execute_method(
-                model,
-                'check_access_rights',
-                required_permission,
-                False
-            )
-            if not has_access:
-                errors.append(ValidationIssue(
-                    field=None,
-                    message=f"No '{required_permission}' permission on model '{model}'",
-                    severity="error"
-                ))
-        except Exception:
-            warnings.append(ValidationIssue(
-                field=None,
-                message=f"Could not verify '{required_permission}' permission",
-                severity="warning"
-            ))
-
-        # For create/write operations, validate fields
-        if method in ['create', 'write']:
-            try:
-                fields_def = odoo.get_model_fields(model)
-
-                # Get values to validate
-                if method == 'create' and args and isinstance(args[0], dict):
-                    values = args[0]
-                elif method == 'write' and len(args) >= 2 and isinstance(args[1], dict):
-                    values = args[1]
-                else:
-                    values = {}
-
-                # Check required fields (for create)
-                if method == 'create':
-                    for field_name, field_def in fields_def.items():
-                        if field_def.get('required') and field_name not in values:
-                            # Check if field has a default value
-                            if not field_def.get('default'):
-                                errors.append(ValidationIssue(
-                                    field=field_name,
-                                    message=f"Required field '{field_name}' is missing",
-                                    severity="error"
-                                ))
-
-                # Check readonly fields
-                for field_name in values.keys():
-                    if field_name in fields_def:
-                        field_def = fields_def[field_name]
-                        if field_def.get('readonly'):
-                            warnings.append(ValidationIssue(
-                                field=field_name,
-                                message=f"Field '{field_name}' is readonly",
-                                severity="warning"
-                            ))
-
-                # Type checking suggestions
-                for field_name, value in values.items():
-                    if field_name in fields_def:
-                        field_type = fields_def[field_name].get('type')
-                        if field_type == 'integer' and not isinstance(value, int):
-                            warnings.append(ValidationIssue(
-                                field=field_name,
-                                message=f"Field '{field_name}' expects integer, got {type(value).__name__}",
-                                severity="warning"
-                            ))
-                        elif field_type == 'boolean' and not isinstance(value, bool):
-                            warnings.append(ValidationIssue(
-                                field=field_name,
-                                message=f"Field '{field_name}' expects boolean, got {type(value).__name__}",
-                                severity="warning"
-                            ))
-
-            except Exception as e:
-                warnings.append(ValidationIssue(
-                    field=None,
-                    message=f"Could not validate fields: {str(e)}",
-                    severity="warning"
-                ))
-
-        # Add suggestions
-        if method == 'search' and not kwargs.get('limit'):
-            suggestions.append("Consider adding a 'limit' parameter to avoid large result sets")
-
-        if method in ['write', 'unlink'] and args and isinstance(args[0], list):
-            record_count = len(args[0])
-            if record_count > 100:
-                warnings.append(ValidationIssue(
-                    field=None,
-                    message=f"Operating on {record_count} records at once - consider batching",
-                    severity="warning"
-                ))
-
-        # Determine if safe to execute
-        safe_to_execute = len(errors) == 0
-
-        return ValidateResponse(
-            valid=len(errors) == 0,
-            errors=errors,
-            warnings=warnings,
-            suggestions=suggestions,
-            safe_to_execute=safe_to_execute
-        )
-
-    except Exception as e:
-        return ValidateResponse(
-            valid=False,
-            errors=[ValidationIssue(field=None, message=f"Validation failed: {str(e)}", severity="error")],
-            warnings=[],
-            suggestions=[],
-            safe_to_execute=False
-        )
-
-
-@mcp.tool(
-    description="Deep read a record with related data - Follows relationships automatically",
-    output_schema=DeepReadResponse.model_json_schema()
-)
-def deep_read(
-    ctx: Context,
-    model: str,
-    record_id: int,
-    follow_relations: Optional[List[str]] = None,
-    depth: int = 1,
-    limit_per_relation: int = 10,
-    minimal_fields: bool = True
-) -> DeepReadResponse:
-    """
-    Fetch a record and automatically follow its relationships
-
-    This intelligently reads related records, saving multiple manual queries.
-
-    Parameters:
-        model: Model name (e.g., 'sale.order')
-        record_id: ID of the record to read
-        follow_relations: Specific relation fields to follow (None = only many2one fields)
-        depth: How deep to follow relations (1 = direct relations only, 2 = relations of relations)
-        limit_per_relation: Max records to fetch per relation (default: 10, prevents huge responses)
-        minimal_fields: Only fetch id, name, display_name for related records (default: True, prevents oversized responses)
-
-    Examples:
-        # Get sales order with customer and order lines
-        deep_read(model='sale.order', record_id=5, depth=2)
-
-        # Get only specific relations
-        deep_read(model='sale.order', record_id=5, follow_relations=['partner_id', 'order_line'])
-
-    Returns:
-        DeepReadResponse with main record and related_records organized by field name
-    """
-    odoo = ctx.request_context.lifespan_context.odoo
-
-    try:
-        # Read main record
-        main_record = odoo.read_records(model, [record_id])
-        if not main_record:
-            return DeepReadResponse(
-                success=False,
-                error=f"Record not found: {model} ID {record_id}"
-            )
-
-        record = main_record[0]
-        related_records = {}
-
-        if depth < 1:
-            return DeepReadResponse(
-                success=True,
-                record=record,
-                related_records={}
-            )
-
-        # Get model schema to identify relationships
-        fields = odoo.get_model_fields(model)
-
-        # Determine which relations to follow
-        relations_to_follow = []
-        for field_name, field_def in fields.items():
-            field_type = field_def.get('type', '')
-
-            # Filter by requested relations
-            if follow_relations and field_name not in follow_relations:
-                continue
-
-            # If no specific relations requested, only follow many2one (prevents massive responses)
-            if not follow_relations and field_type not in ['many2one']:
-                continue
-
-            if field_type in ['many2one', 'one2many', 'many2many']:
-                relations_to_follow.append({
-                    'field': field_name,
-                    'type': field_type,
-                    'relation': field_def.get('relation', '')
-                })
-
-        # Follow each relation
-        for relation in relations_to_follow:
-            field_name = relation['field']
-            field_type = relation['type']
-            relation_model = relation['relation']
-
-            if field_name not in record or not record[field_name]:
-                continue
-
-            try:
-                # Define minimal fields for related records
-                minimal_field_list = ['id', 'name', 'display_name'] if minimal_fields else None
-
-                if field_type == 'many2one':
-                    # many2one: [id, name] format
-                    if isinstance(record[field_name], list) and len(record[field_name]) >= 1:
-                        rel_id = record[field_name][0]
-                        if minimal_fields:
-                            rel_data = odoo.read_records(relation_model, [rel_id], fields=minimal_field_list)
-                        else:
-                            rel_data = odoo.read_records(relation_model, [rel_id])
-                        if rel_data:
-                            related_records[field_name] = rel_data[0]
-
-                elif field_type in ['one2many', 'many2many']:
-                    # one2many/many2many: list of IDs
-                    rel_ids = record[field_name]
-                    if isinstance(rel_ids, list) and rel_ids:
-                        # Limit to prevent huge queries
-                        rel_ids = rel_ids[:limit_per_relation]
-                        if minimal_fields:
-                            rel_data = odoo.read_records(relation_model, rel_ids, fields=minimal_field_list)
-                        else:
-                            rel_data = odoo.read_records(relation_model, rel_ids)
-                        if rel_data:
-                            related_records[field_name] = rel_data
-
-            except Exception as e:
-                # Don't fail the whole operation if one relation fails
-                print(f"Failed to read relation {field_name}: {str(e)}", file=sys.stderr)
-                continue
-
-        return DeepReadResponse(
-            success=True,
-            record=record,
-            related_records=related_records
-        )
-
-    except Exception as e:
-        return DeepReadResponse(
-            success=False,
-            error=str(e)
-        )
 
 
 @mcp.tool(
@@ -1556,284 +1060,6 @@ def batch_execute(
         )
 
 
-@mcp.tool(
-    description="Scan CRM leads for pending customer messages and generate draft responses",
-    output_schema=ScanCRMResponsesResult.model_json_schema()
-)
-def scan_pending_crm_responses(
-    ctx: Context,
-    user_id: Optional[int] = None,
-    limit: int = 20,
-    create_drafts: bool = True
-) -> ScanCRMResponsesResult:
-    """
-    Scan CRM leads assigned to a user for unanswered customer messages
-
-    This tool helps manage customer communication by:
-    1. Finding leads with messages from customers
-    2. Detecting which messages haven't been responded to
-    3. Generating AI-powered draft responses
-    4. Creating internal log notes with the drafts
-
-    Parameters:
-        user_id: ID of the user (None = current user from context)
-        limit: Maximum number of leads to scan (default: 20)
-        create_drafts: Whether to create log notes with draft responses (default: True)
-
-    Returns:
-        ScanCRMResponsesResult with:
-        - Number of leads scanned
-        - Number of pending messages found
-        - Draft responses created
-        - Detailed list of leads with pending messages
-
-    Use Cases:
-        # Scan current user's leads
-        scan_pending_crm_responses()
-
-        # Scan specific user with preview only (no drafts)
-        scan_pending_crm_responses(user_id=5, create_drafts=False)
-
-        # Quick scan of 5 most recent leads
-        scan_pending_crm_responses(limit=5)
-    """
-    odoo = ctx.request_context.lifespan_context.odoo
-
-    try:
-        # Get current user if not specified
-        if user_id is None:
-            domain = [('id', '=', odoo.uid)]
-            fields_to_read = {'fields': ['id', 'partner_id'], 'limit': 1}
-            current_user = odoo.execute_method('res.users', 'search_read', domain, **fields_to_read)
-            if not current_user:
-                return ScanCRMResponsesResult(
-                    success=False,
-                    scanned_leads=0,
-                    pending_messages=0,
-                    drafts_created=0,
-                    error="Could not determine current user"
-                )
-            user_id = current_user[0]['id']
-            user_partner_id = current_user[0]['partner_id'][0] if current_user[0].get('partner_id') else None
-        else:
-            # Get partner_id for specified user
-            user_data = odoo.execute_method('res.users', 'read', [user_id], {'fields': ['partner_id']})
-            if not user_data:
-                return ScanCRMResponsesResult(
-                    success=False,
-                    scanned_leads=0,
-                    pending_messages=0,
-                    drafts_created=0,
-                    error=f"User {user_id} not found"
-                )
-            user_partner_id = user_data[0]['partner_id'][0] if user_data[0].get('partner_id') else None
-
-        if not user_partner_id:
-            return ScanCRMResponsesResult(
-                success=False,
-                scanned_leads=0,
-                pending_messages=0,
-                drafts_created=0,
-                error="User has no associated partner record"
-            )
-
-        # Find active leads assigned to user
-        leads = odoo.execute_method(
-            'crm.lead',
-            'search_read',
-            [[('user_id', '=', user_id), ('active', '=', True)]],
-            {'fields': ['id', 'name', 'partner_id'], 'limit': limit, 'order': 'write_date desc'}
-        )
-
-        scanned_count = len(leads)
-        total_pending = 0
-        drafts_created_count = 0
-        leads_with_pending = []
-
-        # For each lead, check for unanswered messages
-        for lead in leads:
-            lead_id = lead['id']
-            lead_name = lead['name']
-            partner_name = lead['partner_id'][1] if lead.get('partner_id') else "Unknown Customer"
-
-            # Get all messages on this lead from customers (external authors)
-            # We look for messages where:
-            # 1. It's on this lead
-            # 2. Author is external (not internal user)
-            # 3. Message type is email or comment
-            messages = odoo.execute_method(
-                'mail.message',
-                'search_read',
-                [[
-                    ('model', '=', 'crm.lead'),
-                    ('res_id', '=', lead_id),
-                    ('message_type', 'in', ['email', 'comment']),
-                    ('author_id', '!=', False)
-                ]],
-                {'fields': ['id', 'date', 'author_id', 'subject', 'body', 'message_type'], 'order': 'date desc', 'limit': 50}
-            )
-
-            if not messages:
-                continue
-
-            pending_for_lead = []
-
-            # Check each message to see if it needs a response
-            for msg in messages:
-                message_id = msg['id']
-                message_date = msg['date']
-                author_id = msg['author_id'][0] if msg.get('author_id') else None
-                author_name = msg['author_id'][1] if msg.get('author_id') else "Unknown"
-
-                # Skip if author is the assigned user (their own messages)
-                if author_id == user_partner_id:
-                    continue
-
-                # Check if there's a response after this message
-                # Look for messages from the user after this date
-                responses = odoo.execute_method(
-                    'mail.message',
-                    'search_count',
-                    [[
-                        ('model', '=', 'crm.lead'),
-                        ('res_id', '=', lead_id),
-                        ('author_id', '=', user_partner_id),
-                        ('date', '>', message_date)
-                    ]]
-                )
-
-                # If no response found, this message is pending
-                if responses == 0:
-                    # Extract body preview
-                    body = msg.get('body', '')
-                    # Remove HTML tags for preview
-                    import re
-                    body_text = re.sub('<[^<]+?>', '', body)
-                    body_preview = body_text[:200] + '...' if len(body_text) > 200 else body_text
-
-                    # Generate draft response
-                    draft_response = _generate_draft_crm_response(
-                        lead_name=lead_name,
-                        partner_name=partner_name,
-                        message_body=body_preview,
-                        message_subject=msg.get('subject', '')
-                    )
-
-                    draft_note_id = None
-
-                    # Create log note with draft if requested
-                    if create_drafts:
-                        try:
-                            # Get internal note subtype ID
-                            note_subtype = odoo.execute_method(
-                                'ir.model.data',
-                                'search_read',
-                                [[('module', '=', 'mail'), ('name', '=', 'mt_note')]],
-                                {'fields': ['res_id'], 'limit': 1}
-                            )
-                            subtype_id = note_subtype[0]['res_id'] if note_subtype else 2  # Fallback to 2 (common mt_note ID)
-
-                            # Create internal log note
-                            draft_note_id = odoo.execute_method(
-                                'mail.message',
-                                'create',
-                                [{
-                                    'model': 'crm.lead',
-                                    'res_id': lead_id,
-                                    'body': f"<p><strong>[DRAFT RESPONSE - TO REVIEW]</strong></p><p>In response to message from {author_name} on {message_date}:</p><hr/>{draft_response}",
-                                    'message_type': 'comment',
-                                    'subtype_id': subtype_id,
-                                    'subject': f"[DRAFT] Re: {msg.get('subject', 'Customer Message')}"
-                                }]
-                            )
-                            drafts_created_count += 1
-                        except Exception as e:
-                            print(f"Failed to create draft note: {str(e)}", file=sys.stderr)
-
-                    pending_for_lead.append(PendingMessage(
-                        message_id=message_id,
-                        date=message_date,
-                        author=author_name,
-                        subject=msg.get('subject'),
-                        body_preview=body_preview,
-                        draft_response=draft_response,
-                        draft_note_id=draft_note_id
-                    ))
-                    total_pending += 1
-
-            # Add lead to results if it has pending messages
-            if pending_for_lead:
-                leads_with_pending.append(LeadWithPending(
-                    lead_id=lead_id,
-                    lead_name=lead_name,
-                    partner_name=partner_name,
-                    pending_messages=pending_for_lead
-                ))
-
-        return ScanCRMResponsesResult(
-            success=True,
-            scanned_leads=scanned_count,
-            pending_messages=total_pending,
-            drafts_created=drafts_created_count,
-            leads_with_pending=leads_with_pending
-        )
-
-    except Exception as e:
-        return ScanCRMResponsesResult(
-            success=False,
-            scanned_leads=0,
-            pending_messages=0,
-            drafts_created=0,
-            error=f"Scan failed: {str(e)}"
-        )
-
-
-def _generate_draft_crm_response(lead_name: str, partner_name: str, message_body: str, message_subject: str) -> str:
-    """
-    Generate a draft response for a customer message
-
-    This is a simple template-based approach. In production, this could be enhanced with:
-    - AI/LLM integration for smarter responses
-    - Company-specific templates
-    - Product/service knowledge base
-    - Sentiment analysis
-    """
-    # Extract key information
-    is_question = '?' in message_body
-    is_urgent = any(word in message_body.lower() for word in ['urgent', 'asap', 'immediately', 'quickly'])
-
-    # Build draft response
-    greeting = f"Bonjour {partner_name},"
-
-    acknowledgment = ""
-    if is_urgent:
-        acknowledgment = "Merci pour votre message. Je comprends l'urgence de votre demande."
-    elif is_question:
-        acknowledgment = "Merci pour votre question concernant notre offre."
-    else:
-        acknowledgment = "Merci pour votre message."
-
-    body = f"""
-{acknowledgment}
-
-[TODO: Répondre spécifiquement aux points soulevés dans le message]
-
-Concernant {lead_name}, je reviens vers vous rapidement avec plus de détails.
-
-N'hésitez pas si vous avez d'autres questions.
-"""
-
-    signature = """
-Cordialement,
-[Votre nom]
-[Votre titre]
-"""
-
-    draft = f"{greeting}\n\n{body}\n{signature}"
-
-    return draft
-
-
 # ----- MCP Prompts -----
 
 
@@ -1842,11 +1068,7 @@ def search_customers_prompt(
     city: str = "",
     country: str = ""
 ) -> List[Dict[str, str]]:
-    """
-    Pre-built prompt template for searching customers
-
-    User can select this and fill in city/country filters
-    """
+    """Search for customers with optional location filters"""
     filter_desc = []
     if city:
         filter_desc.append(f"in {city}")
@@ -1860,22 +1082,21 @@ def search_customers_prompt(
             "role": "user",
             "content": f"""Find customers {location_filter}.
 
-Steps:
-1. Check odoo://model/res.partner/schema for available fields
-2. Build domain: [["customer_rank", ">", 0]] for customers only
-3. Add location filters if provided:
-   - city: [["city", "ilike", "{city}"]] if city is specified
-   - country: [["country_id.name", "ilike", "{country}"]] if country is specified
-4. Use execute_method with model='res.partner', method='search_read'
-5. Request fields: name, email, phone, city, country_id
+Use execute_method with:
+- model='res.partner'
+- method='search_read'
+- domain: [["customer_rank", ">", 0]]
+- Add location filters if needed
 
-Example call:
+Example:
 execute_method(
     model='res.partner',
     method='search_read',
-    args_json='[[["customer_rank", ">", 0]{', ["city", "ilike", "' + city + '"]' if city else ''}{', ["country_id.name", "ilike", "' + country + '"]' if country else ''}]]',
+    args_json='[[["customer_rank", ">", 0]]]',
     kwargs_json='{{"fields": ["name", "email", "phone", "city", "country_id"], "limit": 20}}'
 )
+
+Check odoo://model/res.partner/schema for all available fields.
 """
         }
     ]
@@ -1885,42 +1106,22 @@ execute_method(
 def create_sales_order_prompt(
     customer_id: int = 0
 ) -> List[Dict[str, str]]:
-    """
-    Template for creating a sales order in Odoo
-
-    Guides through the complete process with validation
-    """
+    """Create a sales order in Odoo"""
     return [
         {
             "role": "user",
             "content": f"""Create a new sales order{' for customer ID ' + str(customer_id) if customer_id > 0 else ''}.
 
-Steps:
-1. If customer_id not provided, search for customer first using res.partner
-2. Check odoo://model/sale.order/schema for required fields
-3. Check odoo://model/sale.order.line/schema for order line fields
-4. Use validate_before_execute to check:
-   - Required fields are present
-   - User has create permission
-5. Create the order with execute_method:
-   - model='sale.order'
-   - method='create'
-   - Include: partner_id, order_line (with product_id, product_uom_qty, price_unit)
-6. Optionally confirm the order with method='action_confirm'
+Use execute_method to create:
+1. Find customer (if not provided): model='res.partner', method='search_read'
+2. Create order: model='sale.order', method='create'
+3. Optionally confirm: model='sale.order', method='action_confirm'
 
-Example structure:
-{{
-  "partner_id": {customer_id if customer_id > 0 else 'CUSTOMER_ID'},
-  "order_line": [
-    [0, 0, {{
-      "product_id": PRODUCT_ID,
-      "product_uom_qty": 1,
-      "price_unit": 100.00
-    }}]
-  ]
-}}
+Check schemas:
+- odoo://model/sale.order/schema for required fields
+- odoo://model/sale.order.line/schema for order lines
 
-Workflow available in odoo://workflows (check sales.quotation_to_order)
+See odoo://workflows for complete sales workflow.
 """
         }
     ]
@@ -1928,169 +1129,22 @@ Workflow available in odoo://workflows (check sales.quotation_to_order)
 
 @mcp.prompt(name="odoo-exploration")
 def odoo_exploration_prompt() -> List[Dict[str, str]]:
-    """
-    Help users discover what they can do with this Odoo instance
-
-    Provides a systematic exploration guide
-    """
+    """Discover capabilities of this Odoo instance"""
     return [
         {
             "role": "user",
-            "content": """Explore this Odoo instance and tell me what I can do with it.
-
-Systematic exploration steps:
+            "content": """Explore this Odoo instance systematically:
 
 1. **Server Info**: Read odoo://server/info
-   - What Odoo version?
-   - What modules are installed?
-   - What apps are available?
+2. **Workflows**: Read odoo://workflows
+3. **Key Models**: Check odoo://models
+4. **Permissions**: Check odoo://model/{model}/access for key models
 
-2. **Available Workflows**: Read odoo://workflows
-   - What business processes are available?
-   - Sales? Inventory? CRM? HR? Accounting?
-
-3. **Key Models**: Check odoo://models for most relevant models based on installed modules
-   - res.partner (contacts/customers)
-   - sale.order (sales) if sale module installed
-   - stock.picking (inventory) if stock module installed
-   - crm.lead (CRM) if crm module installed
-   - account.move (invoices) if account module installed
-
-4. **My Permissions**: For key models, check odoo://model/{model}/access
-   - What can I read?
-   - What can I create?
-   - What can I modify?
-
-5. **Suggest Common Tasks**: Based on installed modules and permissions:
-   - If sales: Creating quotations, confirming orders
-   - If CRM: Managing leads and opportunities
-   - If inventory: Creating transfers, adjusting stock
-   - If HR: Managing employees, leave requests
-
-Provide a summary of:
+Provide summary of:
 - Odoo version and installed apps
-- Available business workflows
-- What I have permission to do
-- 3-5 suggested common tasks I can help with
-"""
-        }
-    ]
-
-
-@mcp.prompt(name="troubleshoot-operation")
-def troubleshoot_operation_prompt(
-    model: str = "",
-    method: str = "",
-    error_message: str = ""
-) -> List[Dict[str, str]]:
-    """
-    Help troubleshoot a failed Odoo operation
-
-    Systematic debugging guide
-    """
-    return [
-        {
-            "role": "user",
-            "content": f"""An Odoo operation failed{' on model ' + model if model else ''}{' calling method ' + method if method else ''}.
-Error: {error_message if error_message else 'See error details above'}
-
-Troubleshooting steps:
-
-1. **Validate the Operation**:
-   Use validate_before_execute to check:
-   - Does the model exist?
-   - Do I have permission?
-   - Are required fields present?
-   - Are field types correct?
-
-2. **Check Model Schema**: odoo://model/{model if model else 'MODEL'}/schema
-   - What fields are required?
-   - What are the field types?
-   - What relationships exist?
-
-3. **Check Access Rights**: odoo://model/{model if model else 'MODEL'}/access
-   - Do I have {method if method else 'the required'} permission?
-
-4. **Check Method Signature**: odoo://methods/{model if model else 'MODEL'}
-   - Is the method name correct?
-   - What parameters does it expect?
-
-5. **Common Issues**:
-   - Missing required fields
-   - Wrong field types (string vs integer)
-   - Invalid foreign key references
-   - Permission denied
-   - Invalid domain syntax
-
-6. **Suggest Fix**:
-   Based on findings, provide corrected execute_method call with:
-   - Proper field values
-   - Correct types
-   - Valid domain syntax
-   - All required fields
-"""
-        }
-    ]
-
-
-@mcp.prompt(name="draft-crm-responses")
-def draft_crm_responses_prompt(
-    user_id: int = 0,
-    limit: int = 10
-) -> List[Dict[str, str]]:
-    """
-    Scan CRM leads for pending customer messages and draft responses
-
-    Helps manage customer communication by finding unanswered messages
-    and generating draft responses automatically
-    """
-    user_filter = f" for user ID {user_id}" if user_id > 0 else " for current user"
-
-    return [
-        {
-            "role": "user",
-            "content": f"""Scan CRM leads{user_filter} for pending customer messages and draft responses.
-
-Process:
-
-1. **Scan for Pending Messages**:
-   Use scan_pending_crm_responses tool to find:
-   - Leads with customer messages awaiting response
-   - Messages from external contacts (not internal users)
-   - Messages without follow-up responses
-
-2. **Review Findings**:
-   Show me:
-   - How many leads were scanned (limit: {limit})
-   - How many pending messages were found
-   - List of leads with pending messages
-   - Preview of each pending message
-
-3. **Draft Responses**:
-   For each pending message:
-   - Review the generated draft response
-   - Note that drafts are created as internal log notes on the lead
-   - Drafts are marked as "[DRAFT RESPONSE - TO REVIEW]"
-
-4. **Next Steps**:
-   Provide guidance on:
-   - How to access the draft notes in Odoo UI
-   - How to review and edit before sending
-   - Best practices for converting drafts to actual responses
-
-Example Usage:
-```python
-# Scan current user's leads (limit 10)
-scan_pending_crm_responses(limit={limit})
-
-# Scan specific user without creating drafts (preview only)
-scan_pending_crm_responses(user_id={user_id if user_id > 0 else 5}, create_drafts=False)
-
-# Quick scan with draft creation
-scan_pending_crm_responses(create_drafts=True)
-```
-
-Present findings in a clear summary with actionable next steps.
+- Available workflows
+- My permissions
+- 3-5 suggested tasks
 """
         }
     ]

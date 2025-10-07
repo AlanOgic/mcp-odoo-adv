@@ -115,7 +115,29 @@ Edit your Claude Desktop configuration file:
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-**Option 1: Using uvx (Recommended)**
+**Option 1: Using local installation**
+
+```json
+{
+  "mcpServers": {
+    "odoo": {
+      "command": "python3",
+      "args": ["-m", "odoo_mcp"],
+      "cwd": "/absolute/path/to/mcp-odoo-adv",
+      "env": {
+        "ODOO_URL": "https://your-instance.odoo.com",
+        "ODOO_DB": "your-database-name",
+        "ODOO_USERNAME": "your-email@company.com",
+        "ODOO_PASSWORD": "your-password-or-api-key"
+      }
+    }
+  }
+}
+```
+
+**Replace** `/absolute/path/to/mcp-odoo-adv` with your actual project path (e.g., `/Users/yourname/projects/mcp-odoo-adv`).
+
+**Option 2: Using uvx (Simpler Alternative)**
 
 ```json
 {
@@ -139,28 +161,6 @@ Edit your Claude Desktop configuration file:
 - No path configuration required
 - Always uses the latest published version
 - Works from anywhere on your system
-
-**Option 2: Using local installation**
-
-```json
-{
-  "mcpServers": {
-    "odoo": {
-      "command": "python3",
-      "args": ["-m", "odoo_mcp"],
-      "cwd": "/absolute/path/to/mcp-odoo-adv",
-      "env": {
-        "ODOO_URL": "https://your-instance.odoo.com",
-        "ODOO_DB": "your-database-name",
-        "ODOO_USERNAME": "your-email@company.com",
-        "ODOO_PASSWORD": "your-password-or-api-key"
-      }
-    }
-  }
-}
-```
-
-**Replace** `/absolute/path/to/mcp-odoo-adv` with your actual project path (e.g., `/Users/yourname/projects/mcp-odoo-adv`).
 
 **Restart Claude Desktop** to activate the connection.
 

@@ -43,7 +43,16 @@ execute_method(model="res.partner", method="read",
 
 ### Installation
 
-**Option 1: Using uvx (Recommended)**
+**Option 1: Traditional pip install**
+
+```bash
+# From source
+git clone https://github.com/AlanOgic/mcp-odoo-adv.git
+cd mcp-odoo-adv
+pip install -e ".[dev]"
+```
+
+**Option 2: Using uvx (No Installation)**
 
 ```bash
 # Run directly without installation
@@ -51,15 +60,6 @@ uvx --from odoo-mcp odoo-mcp
 
 # Or from source directory
 uvx --from . odoo-mcp
-```
-
-**Option 2: Traditional pip install**
-
-```bash
-# From source
-git clone https://github.com/AlanOgic/mcp-odoo-adv.git
-cd mcp-odoo-adv
-pip install -e ".[dev]"
 ```
 
 ### Configuration

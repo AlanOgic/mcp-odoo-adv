@@ -10,6 +10,10 @@ import urllib.parse
 from typing import Any, Dict, List, Optional
 
 import requests
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class OdooClient:

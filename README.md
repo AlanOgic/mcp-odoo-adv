@@ -8,34 +8,32 @@ An advanced MCP (Model Context Protocol) server implementation for Odoo ERP syst
 
 ---
 
-## 🎯 Philosophy: Radical Simplicity
+## 🎯 Philosophy: Simplicity & Power
 
-**Why just 2 tools?**
+Connect AI assistants to Odoo with just **two universal tools**:
 
-Because complexity is the enemy of reliability. Instead of maintaining 7+ specialized tools (most broken or redundant), we provide:
+1. **`execute_method`** - Call any Odoo method on any model
+2. **`batch_execute`** - Execute multiple operations atomically
 
-1. **`execute_method`** - Universal access to the entire Odoo API
-2. **`batch_execute`** - Atomic multi-operation transactions
+No complexity. No limitations. Full Odoo API access.
 
-That's it. Everything else is just documentation and examples.
-
-### The Power User Advantage
+### What You Can Do
 
 ```python
-# Instead of specialized "search_employee" tool:
+# Search employees
 execute_method(model="hr.employee", method="search_read",
                kwargs_json='{"domain": [["name", "ilike", "john"]]}')
 
-# Instead of specialized "search_holidays" tool:
+# Manage time off requests
 execute_method(model="hr.leave", method="search_read",
                kwargs_json='{"domain": [["date_from", ">=", "2025-01-01"]]}')
 
-# Instead of specialized "deep_read" tool:
+# Read customer data with relations
 execute_method(model="res.partner", method="read",
                args_json='[[263], ["name", "country_id", "invoice_ids"]]')
 ```
 
-**See? You already have everything you need.** 🚀
+Everything you need to automate, query, and manage your Odoo instance through AI.
 
 ---
 
@@ -281,70 +279,54 @@ batch_execute(
 
 ---
 
-## 💡 Why This Approach Works
+## 💡 Why This Design Works
 
-### ✅ Advantages
+### ✅ Key Benefits
 
-**1. Reliability**
-- No broken specialized tools
-- Odoo provides excellent native error messages
-- One path to maintain, not seven
-
-**2. Power**
-- Full Odoo API access
+**1. Universal Access**
+- Full Odoo API at your fingertips
 - No artificial limitations
 - Do anything Odoo can do
 
-**3. Simplicity**
-- Learn 2 tools, not 7
+**2. Simple & Predictable**
+- Learn 2 tools, use everywhere
 - Clear mental model
-- Easier to debug
+- Easy to debug and maintain
 
-**4. Maintainability**
-- Less code to maintain
-- Focus on documentation, not tools
-- Better long-term stability
+**3. Reliable**
+- Odoo provides excellent native error messages
+- Direct API access means fewer points of failure
+- Stable, production-ready implementation
 
-### ❌ What We Removed (And Why)
-
-We removed 5 specialized tools because they were:
-
-1. **Redundant** - `execute_method` already does everything
-2. **Broken** - Most had bugs or limitations
-3. **Misleading** - Gave false sense of convenience
-4. **Maintenance burden** - More code to maintain and debug
-
-**Removed tools:**
-- ❌ `search_employee` - Just use `execute_method` with `hr.employee`
-- ❌ `search_holidays` - Just use `execute_method` with `hr.leave`
-- ❌ `validate_before_execute` - Odoo's native errors are better
-- ❌ `deep_read` - Causes oversized responses, use `read` + `read`
-- ❌ `scan_pending_crm_responses` - Too specific, build your own query
+**4. Flexible**
+- Works with any Odoo version (14+)
+- Supports all Odoo models and methods
+- Extensible through Odoo's native capabilities
 
 ---
 
 ## 🔥 Features
 
-### Core Capabilities
-* **Two Universal Tools**: `execute_method` and `batch_execute` - that's all you need
-* **Full Odoo API**: Complete access to all models, methods, and workflows
-* **MCP 2025 Compliant**: Latest Model Context Protocol specification (2025-06-18)
-* **FastMCP 2.12+**: Built with modern FastMCP framework
-* **Python 3.10-3.13**: Tested on all current Python versions
+### AI Integration
+* **Claude Desktop Ready**: Seamless integration with Claude Code
+* **Two Universal Tools**: Access the entire Odoo API with `execute_method` and `batch_execute`
+* **Smart Limits**: Automatic protection against oversized queries (configurable)
+* **MCP 2025 Compliant**: Latest Model Context Protocol specification
 
-### Multiple Transports
-* **STDIO**: For Claude Desktop (default)
-* **SSE**: For web browsers and HTTP clients
-* **Streamable HTTP**: For API integrations
-* See [TRANSPORTS.md](DOCS/TRANSPORTS.md) for details
+### Multiple Connection Options
+* **STDIO**: Direct integration with Claude Desktop
+* **SSE**: Server-Sent Events for web browsers (port 8009)
+* **HTTP**: Streamable HTTP for API integrations (port 8008)
+* **Docker**: Pre-built containers for all transports
 
-### Production Ready
-* **Comprehensive Error Handling**: Odoo provides excellent native errors
-* **Flexible Configuration**: Environment variables or config files
+### Enterprise Ready
+* **Odoo 14+**: Works with all modern Odoo versions
+* **JSON-2 API**: Support for Odoo 19+ Bearer token authentication
+* **Flexible Auth**: Environment variables or config files
 * **Enhanced Logging**: Timestamped logs in `./logs/`
-* **HTTP Proxy Support**: `HTTP_PROXY` environment variable
-* **SSL Control**: `ODOO_VERIFY_SSL` option
-* **Configurable Timeouts**: `ODOO_TIMEOUT` (default: 30s)
+* **Proxy Support**: HTTP proxy configuration
+* **SSL Control**: Configurable SSL verification
+* **Python 3.10-3.13**: Tested on all current Python versions
 
 ---
 
@@ -364,17 +346,17 @@ Benefits:
 - Better performance
 - Future-proof (JSON-RPC deprecated in Odoo 20)
 
-### Docker
+### Docker Deployment
 
 ```bash
-# STDIO transport
+# STDIO transport (Claude Desktop)
 docker run -i --rm --env-file .env alanogic/mcp-odoo-adv:latest
 
-# SSE transport
-docker run -p 8000:8000 --env-file .env alanogic/mcp-odoo-adv:sse
+# SSE transport (Web browsers)
+docker run -p 8009:8009 --env-file .env alanogic/mcp-odoo-adv:sse
 
-# HTTP transport
-docker run -p 8000:8000 --env-file .env alanogic/mcp-odoo-adv:http
+# HTTP transport (API integrations)
+docker run -p 8008:8008 --env-file .env alanogic/mcp-odoo-adv:http
 ```
 
 ### Domain Operators
@@ -391,28 +373,15 @@ Common search operators:
 
 ---
 
-## 🧪 Testing
-
-Run the test suite:
-
-```bash
-python test_simplified.py
-```
-
-Tests verify:
-- Only 2 tools registered
-- All specialized tools removed
-- Module imports correctly
-- Proper tool signatures
-
----
-
 ## 📖 Documentation
 
-- **[COOKBOOK.md](COOKBOOK.md)** - 40+ practical examples (START HERE!)
-- **[TRANSPORTS.md](DOCS/TRANSPORTS.md)** - Multiple transport options
-- **[CLAUDE.md](DOCS/CLAUDE.md)** - Developer guide
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history
+**New to Odoo MCP Server?** Start here:
+
+1. **[USER_GUIDE.md](USER_GUIDE.md)** - Complete setup guide with 5-minute quick-start
+2. **[COOKBOOK.md](COOKBOOK.md)** - 45+ practical examples for common tasks
+3. **[TRANSPORTS.md](DOCS/TRANSPORTS.md)** - Connection options (STDIO, SSE, HTTP)
+4. **[CLAUDE.md](DOCS/CLAUDE.md)** - Technical reference and architecture
+5. **[CHANGELOG.md](CHANGELOG.md)** - Version history and updates
 
 ---
 
@@ -427,10 +396,10 @@ Contributions welcome! Please:
 5. Open Pull Request
 
 **Development philosophy:**
-- Keep it simple
-- Avoid specialized tools
-- Focus on documentation
-- Test thoroughly
+- Simplicity first
+- Universal tools over specialized ones
+- Documentation over complexity
+- Reliability through directness
 
 ---
 
@@ -448,16 +417,20 @@ MIT License - See [LICENSE](LICENSE) file
 
 ---
 
-## 🎯 Project Goals
+## 🎯 What's Next?
 
-1. **Simplicity** - Two tools, infinite possibilities
-2. **Reliability** - No broken specialized tools
-3. **Power** - Full Odoo API access
-4. **Documentation** - Excellent examples and guides
-5. **Maintainability** - Less code, more stability
+**Ready to get started?**
+
+1. **Quick Setup**: Follow the [USER_GUIDE.md](USER_GUIDE.md) 5-minute quick-start
+2. **Learn by Example**: Browse [COOKBOOK.md](COOKBOOK.md) for 45+ recipes
+3. **Explore Your Odoo**: Use the `odoo-exploration` prompt in Claude
+4. **Build & Automate**: Create custom workflows with `execute_method`
+
+**Need help?**
+- 📖 Check the [USER_GUIDE.md](USER_GUIDE.md) troubleshooting section
+- 💬 Open an [issue](https://github.com/AlanOgic/mcp-odoo-adv/issues) on GitHub
+- 🌟 Star the repo if you find it useful!
 
 ---
 
-**Remember**: You don't need specialized tools. You have the full Odoo API at your fingertips. 🌟
-
-**Read the [COOKBOOK](COOKBOOK.md) and start building!**
+**Connect AI to Odoo. Build the future.** 🚀

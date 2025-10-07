@@ -205,6 +205,10 @@ execute_method(
 )
 ```
 
+---
+
+## Efficient Querying Patterns
+
 ### 11. Pagination for Large Datasets
 
 ```python
@@ -322,7 +326,7 @@ execute_method(
 
 ## Creating Records
 
-### 11. Create a Simple Record
+### 16. Create a Simple Record
 
 ```python
 execute_method(
@@ -336,7 +340,7 @@ execute_method(
 )
 ```
 
-### 12. Create with Many2one Relation
+### 17. Create with Many2one Relation
 
 ```python
 execute_method(
@@ -350,7 +354,7 @@ execute_method(
 )
 ```
 
-### 13. Create with One2many (Order + Lines)
+### 18. Create with One2many (Order + Lines)
 
 ```python
 execute_method(
@@ -374,7 +378,7 @@ execute_method(
 )
 ```
 
-### 14. Create Multiple Records at Once
+### 19. Create Multiple Records at Once
 
 ```python
 execute_method(
@@ -392,7 +396,7 @@ execute_method(
 
 ## Updating Records
 
-### 15. Update Single Field
+### 20. Update Single Field
 
 ```python
 execute_method(
@@ -402,7 +406,7 @@ execute_method(
 )
 ```
 
-### 16. Update Multiple Records
+### 21. Update Multiple Records
 
 ```python
 execute_method(
@@ -412,7 +416,7 @@ execute_method(
 )
 ```
 
-### 17. Update Multiple Fields
+### 22. Update Multiple Fields
 
 ```python
 execute_method(
@@ -427,7 +431,7 @@ execute_method(
 )
 ```
 
-### 18. Update with Related Records
+### 23. Update with Related Records
 
 ```python
 execute_method(
@@ -443,7 +447,7 @@ execute_method(
 
 ## Deleting Records
 
-### 19. Delete Records
+### 24. Delete Records
 
 ```python
 execute_method(
@@ -453,7 +457,7 @@ execute_method(
 )
 ```
 
-### 20. Archive Instead of Delete
+### 25. Archive Instead of Delete
 
 ```python
 # Safer: archive records instead of deleting
@@ -468,7 +472,7 @@ execute_method(
 
 ## Relationships
 
-### 21. Read Record with Relations
+### 26. Read Record with Relations
 
 ```python
 # First, read the main record
@@ -487,7 +491,7 @@ execute_method(
 )
 ```
 
-### 22. Search Through Relations
+### 27. Search Through Relations
 
 ```python
 # Find sales orders for customers in France
@@ -499,7 +503,7 @@ execute_method(
 )
 ```
 
-### 23. Add Many2many Relations
+### 28. Add Many2many Relations
 
 ```python
 execute_method(
@@ -511,7 +515,7 @@ execute_method(
 )
 ```
 
-### 24. Remove Many2many Relations
+### 29. Remove Many2many Relations
 
 ```python
 execute_method(
@@ -523,7 +527,7 @@ execute_method(
 )
 ```
 
-### 25. Replace All Many2many Relations
+### 30. Replace All Many2many Relations
 
 ```python
 execute_method(
@@ -539,7 +543,7 @@ execute_method(
 
 ## Workflows
 
-### 26. Confirm Sales Order
+### 31. Confirm Sales Order
 
 ```python
 execute_method(
@@ -549,7 +553,7 @@ execute_method(
 )
 ```
 
-### 27. Post Invoice
+### 32. Post Invoice
 
 ```python
 execute_method(
@@ -559,7 +563,7 @@ execute_method(
 )
 ```
 
-### 28. Validate Stock Picking
+### 33. Validate Stock Picking
 
 ```python
 execute_method(
@@ -569,7 +573,7 @@ execute_method(
 )
 ```
 
-### 29. Mark CRM Lead as Won
+### 34. Mark CRM Lead as Won
 
 ```python
 execute_method(
@@ -579,7 +583,7 @@ execute_method(
 )
 ```
 
-### 30. Convert Lead to Opportunity
+### 35. Convert Lead to Opportunity
 
 ```python
 execute_method(
@@ -593,7 +597,7 @@ execute_method(
 
 ## Batch Operations
 
-### 31. Create Customer + Sales Order (Atomic)
+### 36. Create Customer + Sales Order (Atomic)
 
 ```python
 batch_execute(
@@ -613,7 +617,7 @@ batch_execute(
 )
 ```
 
-### 32. Update Multiple Models
+### 37. Update Multiple Models
 
 ```python
 batch_execute(
@@ -638,7 +642,7 @@ batch_execute(
 )
 ```
 
-### 33. Batch Create Many Records
+### 38. Batch Create Many Records
 
 ```python
 batch_execute(
@@ -658,7 +662,7 @@ batch_execute(
 
 ## Advanced Patterns
 
-### 34. Search Employees by Name
+### 39. Search Employees by Name
 
 ```python
 execute_method(
@@ -669,7 +673,7 @@ execute_method(
 )
 ```
 
-### 35. Time Off / Holiday Requests
+### 40. Time Off / Holiday Requests
 
 ```python
 execute_method(
@@ -684,7 +688,7 @@ execute_method(
 )
 ```
 
-### 36. Find Pending CRM Messages
+### 41. Find Pending CRM Messages
 
 ```python
 # 1. Find my leads
@@ -708,7 +712,7 @@ execute_method(
 )
 ```
 
-### 37. Products with Stock Levels
+### 42. Products with Stock Levels
 
 ```python
 execute_method(
@@ -719,7 +723,7 @@ execute_method(
 )
 ```
 
-### 38. Invoices by Date Range
+### 43. Invoices by Date Range
 
 ```python
 execute_method(
@@ -735,7 +739,7 @@ execute_method(
 )
 ```
 
-### 39. Projects and Tasks
+### 44. Projects and Tasks
 
 ```python
 execute_method(
@@ -749,7 +753,7 @@ execute_method(
 )
 ```
 
-### 40. Users and Groups
+### 45. Users and Groups
 
 ```python
 execute_method(

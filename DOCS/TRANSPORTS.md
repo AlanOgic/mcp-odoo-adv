@@ -5,8 +5,8 @@ The Odoo MCP Server supports three transport mechanisms for different use cases:
 | Transport | Use Case | Port | Clients |
 |-----------|----------|------|---------|
 | **STDIO** | Claude Desktop, CLI tools | N/A | Process pipes |
-| **SSE** | Web browsers, HTTP clients | 8000 | EventSource, curl |
-| **Streamable HTTP** | API integrations, programmatic | 8000 | httpx, fetch API |
+| **SSE** | Web browsers, HTTP clients | 8009 | EventSource, curl |
+| **Streamable HTTP** | API integrations, programmatic | 8008 | httpx, fetch API |
 
 ## STDIO Transport (Default)
 
@@ -78,7 +78,7 @@ MCP_HOST=localhost MCP_PORT=9000 MCP_SSE_PATH=/events python run_server_sse.py
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MCP_HOST` | 0.0.0.0 | Host to bind to |
-| `MCP_PORT` | 8000 | Port to listen on |
+| `MCP_PORT` | 8009 | Port to listen on |
 | `MCP_SSE_PATH` | /sse | SSE endpoint path |
 
 ### Docker
@@ -88,7 +88,7 @@ MCP_HOST=localhost MCP_PORT=9000 MCP_SSE_PATH=/events python run_server_sse.py
 docker build -t alanogic/mcp-odoo-adv:sse -f Dockerfile.sse .
 
 # Run
-docker run -p 8000:8000 \
+docker run -p 8009:8009 \
   -e ODOO_URL=https://your-instance.odoo.com \
   -e ODOO_DB=your-database \
   -e ODOO_USERNAME=your-username \
@@ -96,14 +96,14 @@ docker run -p 8000:8000 \
   alanogic/mcp-odoo-adv:sse
 
 # Or with .env file
-docker run -p 8000:8000 --env-file .env alanogic/mcp-odoo-adv:sse
+docker run -p 8009:8009 --env-file .env alanogic/mcp-odoo-adv:sse
 ```
 
 ### Client Examples
 
 **JavaScript (Browser)**
 ```javascript
-const eventSource = new EventSource('http://localhost:8000/sse');
+const eventSource = new EventSource('http://localhost:8009/sse');
 
 eventSource.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -119,7 +119,7 @@ eventSource.onerror = (error) => {
 ```python
 import requests
 
-with requests.get('http://localhost:8000/sse', stream=True) as response:
+with requests.get('http://localhost:8009/sse', stream=True) as response:
     for line in response.iter_lines():
         if line:
             print(line.decode('utf-8'))
@@ -127,7 +127,7 @@ with requests.get('http://localhost:8000/sse', stream=True) as response:
 
 **curl**
 ```bash
-curl -N http://localhost:8000/sse
+curl -N http://localhost:8009/sse
 ```
 
 ## Streamable HTTP Transport
@@ -158,7 +158,7 @@ MCP_HOST=localhost MCP_PORT=9000 MCP_HTTP_PATH=/api python run_server_http.py
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MCP_HOST` | 0.0.0.0 | Host to bind to |
-| `MCP_PORT` | 8000 | Port to listen on |
+| `MCP_PORT` | 8008 | Port to listen on |
 | `MCP_HTTP_PATH` | /mcp | HTTP endpoint path |
 
 ### Docker
@@ -168,7 +168,7 @@ MCP_HOST=localhost MCP_PORT=9000 MCP_HTTP_PATH=/api python run_server_http.py
 docker build -t alanogic/mcp-odoo-adv:http -f Dockerfile.http .
 
 # Run
-docker run -p 8000:8000 \
+docker run -p 8008:8008 \
   -e ODOO_URL=https://your-instance.odoo.com \
   -e ODOO_DB=your-database \
   -e ODOO_USERNAME=your-username \
@@ -176,7 +176,7 @@ docker run -p 8000:8000 \
   alanogic/mcp-odoo-adv:http
 
 # Or with .env file
-docker run -p 8000:8000 --env-file .env alanogic/mcp-odoo-adv:http
+docker run -p 8008:8008 --env-file .env alanogic/mcp-odoo-adv:http
 ```
 
 ### Client Examples
@@ -196,7 +196,7 @@ async with httpx.AsyncClient() as client:
 
     async with client.stream(
         'POST',
-        'http://localhost:8000/mcp',
+        'http://localhost:8008/mcp',
         json=request_data,
         headers={'Content-Type': 'application/json'}
     ) as response:
@@ -207,7 +207,7 @@ async with httpx.AsyncClient() as client:
 
 **JavaScript (fetch)**
 ```javascript
-const response = await fetch('http://localhost:8000/mcp', {
+const response = await fetch('http://localhost:8008/mcp', {
   method: 'POST',
   headers: {'Content-Type': 'application/json'},
   body: JSON.stringify({
@@ -228,7 +228,7 @@ while (true) {
 
 **curl**
 ```bash
-curl -X POST http://localhost:8000/mcp \
+curl -X POST http://localhost:8008/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
 ```
@@ -243,7 +243,11 @@ For production deployments, use Nginx as a reverse proxy to add SSL, authenticat
 # /etc/nginx/sites-available/mcp-odoo
 
 upstream mcp_sse {
-    server 127.0.0.1:8000;
+    server 127.0.0.1:8009;
+}
+
+upstream mcp_http {
+    server 127.0.0.1:8008;
 }
 
 server {
@@ -270,7 +274,7 @@ server {
 
     # Streamable HTTP endpoint
     location /mcp {
-        proxy_pass http://mcp_sse;
+        proxy_pass http://mcp_http;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -303,7 +307,7 @@ Environment="ODOO_DB=your-database"
 Environment="ODOO_USERNAME=your-username"
 Environment="ODOO_PASSWORD=your-password"
 Environment="MCP_HOST=127.0.0.1"
-Environment="MCP_PORT=8000"
+Environment="MCP_PORT=8009"
 ExecStart=/opt/mcp-odoo-adv/.venv/bin/python run_server_sse.py
 Restart=always
 RestartSec=10
@@ -368,10 +372,10 @@ sudo systemctl status mcp-odoo-sse
 **Solutions:**
 ```bash
 # Check if server is running
-curl -v http://localhost:8000/sse
+curl -v http://localhost:8009/sse
 
 # Verify port is listening
-netstat -an | grep 8000
+netstat -an | grep 8009
 
 # Check firewall rules
 sudo ufw status
@@ -403,14 +407,16 @@ proxy_send_timeout 300s;
 
 **Solutions:**
 ```bash
-# Find process using port 8000
-lsof -i :8000
+# Find process using port 8009 (SSE) or 8008 (HTTP)
+lsof -i :8009
+lsof -i :8008
 
 # Kill the process
 kill -9 <PID>
 
 # Or use a different port
-MCP_PORT=8001 python run_server_sse.py
+MCP_PORT=8010 python run_server_sse.py
+MCP_PORT=8007 python run_server_http.py
 ```
 
 ### CORS Issues (Browser Clients)

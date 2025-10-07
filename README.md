@@ -88,7 +88,7 @@ python run_server_http.py
 
 ### Claude Desktop Setup
 
-**Option 1: Using uvx (Recommended)**
+**Option 1: Using local installation**
 
 Add to `claude_desktop_config.json`:
 
@@ -96,8 +96,8 @@ Add to `claude_desktop_config.json`:
 {
   "mcpServers": {
     "odoo": {
-      "command": "uvx",
-      "args": ["--from", "odoo-mcp", "odoo-mcp"],
+      "command": "python",
+      "args": ["-m", "odoo_mcp"],
       "env": {
         "ODOO_URL": "https://your-instance.odoo.com",
         "ODOO_DB": "your-database",
@@ -109,14 +109,14 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-**Option 2: Using Python module**
+**Option 2: Using uvx (Simpler Alternative)**
 
 ```json
 {
   "mcpServers": {
     "odoo": {
-      "command": "python",
-      "args": ["-m", "odoo_mcp"],
+      "command": "uvx",
+      "args": ["--from", "odoo-mcp", "odoo-mcp"],
       "env": {
         "ODOO_URL": "https://your-instance.odoo.com",
         "ODOO_DB": "your-database",

@@ -14,7 +14,6 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Union, cast
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
-from .config import config
 from .odoo_client import OdooClient, get_odoo_client
 
 
@@ -799,8 +798,8 @@ def execute_method(
                 return {"success": False, "error": f"Invalid JSON in kwargs_json: {str(e)}"}
 
         # Apply smart limits to prevent massive data returns
-        DEFAULT_LIMIT = config.DEFAULT_QUERY_LIMIT
-        MAX_LIMIT = config.MAX_QUERY_LIMIT
+        DEFAULT_LIMIT = 100  # Reasonable default to prevent huge responses
+        MAX_LIMIT = 1000     # Hard maximum to cap queries
 
         # Special handling for search methods like search, search_count, search_read
         search_methods = ["search", "search_count", "search_read"]

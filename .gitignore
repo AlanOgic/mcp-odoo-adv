@@ -10,6 +10,8 @@ build/
 *.egg
 
 # Virtual environments
+venv/
+.venv/
 8009/
 env/
 ENV/
@@ -31,7 +33,6 @@ logs/
 .env.test.local
 .env.production.local
 .claude/agents
-.venv
 
 # Odoo specific
 odoo_config.json
@@ -57,10 +58,11 @@ coverage.xml
 
 # Docker
 .dockerignore
-2025-09-30-command-messageinit-is-analyzing-your-codebase.txt
-2025-10-01-command-messageinit-is-analyzing-your-codebase.txt
-EXECUTE_METHOD_FIX_SUMMARY.md
-KNOWN_ISSUES.md
+
+# Archived files
+archived/
+
+# Backup files
 uv.lock
 src/odoo_mcp/odoo_client.py.xmlrpc.backup
 src/odoo_mcp/server.py.backup

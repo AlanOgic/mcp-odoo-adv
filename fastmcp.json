@@ -1,6 +1,6 @@
 {
   "name": "odoo-mcp-adv",
-  "version": "0.0.5",
+  "version": "1.0.0-beta",
   "entrypoint": "src/odoo_mcp/server.py",
   "description": "Advanced MCP Server for Odoo with Multiple Transport Support (STDIO, SSE, HTTP)",
   "author": "Alan Ogic <info@alanogic.com>",

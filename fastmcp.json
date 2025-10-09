@@ -6,7 +6,7 @@
   "author": "Alan Ogic <info@alanogic.com>",
   "license": "MIT",
   "repository": "https://github.com/AlanOgic/mcp-odoo-adv",
-  "keywords": ["odoo", "mcp", "server", "stdio", "sse", "streaming http"],
+  "keywords": ["odoo", "mcp", "server", "stdio", "sse", "streaming", "http"],
   "environment": {
     "dependencies": ["requests>=2.31.0", "fastmcp>=2.12.0"]
   },

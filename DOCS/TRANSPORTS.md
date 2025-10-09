@@ -289,6 +289,312 @@ server {
 }
 ```
 
+### Security Configurations
+
+#### Option 1: API Key Authentication
+
+Secure endpoints with custom API key headers.
+
+```nginx
+# /etc/nginx/sites-available/mcp-odoo-secure
+
+# Define API key (store in separate file for production)
+map $http_x_api_key $api_key_valid {
+    default 0;
+    "your-secret-api-key-here" 1;
+}
+
+upstream mcp_http {
+    server 127.0.0.1:8008;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name mcp.yourdomain.com;
+
+    ssl_certificate /etc/letsencrypt/live/mcp.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mcp.yourdomain.com/privkey.pem;
+
+    # Streamable HTTP endpoint with API key auth
+    location /mcp {
+        # Validate API key
+        if ($api_key_valid = 0) {
+            return 401 '{"error": "Unauthorized - Invalid or missing API key"}';
+        }
+
+        proxy_pass http://mcp_http;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Streaming settings
+        proxy_buffering off;
+        proxy_request_buffering off;
+        client_max_body_size 100M;
+    }
+}
+```
+
+**Client Usage:**
+```bash
+# curl with API key
+curl -X POST https://mcp.yourdomain.com/mcp \
+  -H "X-API-Key: your-secret-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
+```
+
+```python
+# Python with API key
+import httpx
+
+headers = {
+    "X-API-Key": "your-secret-api-key-here",
+    "Content-Type": "application/json"
+}
+
+async with httpx.AsyncClient() as client:
+    response = await client.post(
+        "https://mcp.yourdomain.com/mcp",
+        headers=headers,
+        json={"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
+    )
+```
+
+#### Option 2: Basic Authentication
+
+Simple username/password authentication.
+
+```nginx
+# /etc/nginx/sites-available/mcp-odoo-basic-auth
+
+upstream mcp_http {
+    server 127.0.0.1:8008;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name mcp.yourdomain.com;
+
+    ssl_certificate /etc/letsencrypt/live/mcp.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mcp.yourdomain.com/privkey.pem;
+
+    location /mcp {
+        # Basic authentication
+        auth_basic "MCP Server - Restricted Access";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+
+        proxy_pass http://mcp_http;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+
+        # Streaming settings
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+}
+```
+
+**Setup Basic Auth:**
+```bash
+# Install apache2-utils for htpasswd
+sudo apt-get install apache2-utils
+
+# Create password file (first user)
+sudo htpasswd -c /etc/nginx/.htpasswd mcpuser
+
+# Add additional users
+sudo htpasswd /etc/nginx/.htpasswd anotheruser
+
+# Set proper permissions
+sudo chmod 640 /etc/nginx/.htpasswd
+sudo chown root:www-data /etc/nginx/.htpasswd
+```
+
+**Client Usage:**
+```bash
+# curl with basic auth
+curl -X POST https://mcp.yourdomain.com/mcp \
+  -u mcpuser:password \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
+```
+
+```python
+# Python with basic auth
+import httpx
+
+async with httpx.AsyncClient() as client:
+    response = await client.post(
+        "https://mcp.yourdomain.com/mcp",
+        auth=("mcpuser", "password"),
+        json={"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
+    )
+```
+
+#### Option 3: Mutual TLS (mTLS)
+
+Certificate-based authentication for maximum security.
+
+```nginx
+# /etc/nginx/sites-available/mcp-odoo-mtls
+
+upstream mcp_http {
+    server 127.0.0.1:8008;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name mcp.yourdomain.com;
+
+    # Server certificate
+    ssl_certificate /etc/nginx/certs/server.crt;
+    ssl_certificate_key /etc/nginx/certs/server.key;
+
+    # Client certificate validation
+    ssl_client_certificate /etc/nginx/certs/ca.crt;
+    ssl_verify_client on;
+    ssl_verify_depth 2;
+
+    # Optional: Pass client certificate info to backend
+    proxy_set_header X-SSL-Client-Cert $ssl_client_cert;
+    proxy_set_header X-SSL-Client-DN $ssl_client_s_dn;
+
+    location /mcp {
+        proxy_pass http://mcp_http;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+
+        # Streaming settings
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+}
+```
+
+**Setup mTLS Certificates:**
+```bash
+# 1. Create CA (Certificate Authority)
+openssl genrsa -out ca.key 4096
+openssl req -new -x509 -days 365 -key ca.key -out ca.crt
+
+# 2. Create server certificate
+openssl genrsa -out server.key 4096
+openssl req -new -key server.key -out server.csr
+openssl x509 -req -days 365 -in server.csr -CA ca.crt -CAkey ca.key -set_serial 01 -out server.crt
+
+# 3. Create client certificate
+openssl genrsa -out client.key 4096
+openssl req -new -key client.key -out client.csr
+openssl x509 -req -days 365 -in client.csr -CA ca.crt -CAkey ca.key -set_serial 02 -out client.crt
+
+# 4. Create client .p12 bundle (for browser/applications)
+openssl pkcs12 -export -out client.p12 -inkey client.key -in client.crt -certfile ca.crt
+
+# 5. Copy certificates to Nginx
+sudo cp ca.crt server.crt server.key /etc/nginx/certs/
+sudo chmod 600 /etc/nginx/certs/*.key
+```
+
+**Client Usage:**
+```bash
+# curl with client certificate
+curl -X POST https://mcp.yourdomain.com/mcp \
+  --cert client.crt \
+  --key client.key \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
+```
+
+```python
+# Python with client certificate
+import httpx
+
+async with httpx.AsyncClient(
+    cert=("client.crt", "client.key"),
+    verify="ca.crt"
+) as client:
+    response = await client.post(
+        "https://mcp.yourdomain.com/mcp",
+        json={"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
+    )
+```
+
+#### Option 4: Combined Security (Recommended)
+
+Combine multiple security layers for production.
+
+```nginx
+# /etc/nginx/sites-available/mcp-odoo-production
+
+# Rate limiting
+limit_req_zone $binary_remote_addr zone=mcp_limit:10m rate=10r/s;
+
+# API key validation
+map $http_x_api_key $api_key_valid {
+    default 0;
+    "prod-api-key-12345" 1;
+}
+
+upstream mcp_http {
+    server 127.0.0.1:8008;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name mcp.yourdomain.com;
+
+    # SSL configuration
+    ssl_certificate /etc/letsencrypt/live/mcp.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mcp.yourdomain.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Logging
+    access_log /var/log/nginx/mcp_access.log;
+    error_log /var/log/nginx/mcp_error.log;
+
+    location /mcp {
+        # IP whitelist (adjust for your network)
+        allow 10.0.0.0/8;
+        allow 172.16.0.0/12;
+        allow 192.168.0.0/16;
+        deny all;
+
+        # Rate limiting
+        limit_req zone=mcp_limit burst=20 nodelay;
+
+        # API key validation
+        if ($api_key_valid = 0) {
+            return 401 '{"error": "Unauthorized"}';
+        }
+
+        # Proxy to MCP server
+        proxy_pass http://mcp_http;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Streaming settings
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        client_max_body_size 100M;
+    }
+}
+```
+
 ### Systemd Service
 
 Create `/etc/systemd/system/mcp-odoo-sse.service`:

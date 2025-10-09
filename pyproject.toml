@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "odoo-mcp"
-version = "1.0.0-beta"
+version = "1.0.0-beta.2"
 description = "Advanced MCP Server for Odoo with Multiple Transport Support (STDIO, SSE, HTTP)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,11 +18,12 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
 ]
-keywords = ["odoo", "mcp", "server", "stdio", "sse", "streaming http"]
+keywords = ["odoo", "odoo 17", "odoo 18", "odoo 19", "mcp", "odoo-mcp", "mcp server", "server", "docker", "stdio", "sse", "streaming http"]
 authors = [
     {name = "Alan Ogic", email = "info@alanogic.com"}
 ]
-# Forked from tuanle96/mcp-odoo by Lê Anh Tuấn
+# 'execute_method' discovered in the XMLRPC osoo mcp from tuanle96/mcp-odoo by Lê Anh Tuấn, thanks to him for opening my understanding od mcp
+#
 dependencies = [
     "fastmcp>=2.12.0",
     "requests>=2.31.0",

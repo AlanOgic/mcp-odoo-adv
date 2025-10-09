@@ -1,8 +1,8 @@
-# Dockerfile for Odoo MCP Server with Streamable HTTP Transport
+# Dockerfile for Advanced Odoo MCP Server with Streamable HTTP Transport
 # Build: docker build -t alanogic/mcp-odoo-adv:http -f Dockerfile.http .
 # Run: docker run -p 8008:8008 --env-file .env alanogic/mcp-odoo-adv:http
 
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VERSION=3.13
 FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app

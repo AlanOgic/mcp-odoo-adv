@@ -117,7 +117,6 @@ HTTP_PROXY=http://proxy.com      # HTTP proxy for Odoo connection
 1. `.env` - Environment variables (preferred)
 2. `./odoo_config.json` - JSON config file
 3. `~/.config/odoo/config.json` - User config
-4. `~/.odoo_config.json` - Home directory config
 
 ## Package Structure
 
@@ -128,8 +127,8 @@ mcp-odoo-adv/
 │   ├── __main__.py              # CLI entry point (odoo-mcp command)
 │   ├── server.py                # MCP server (800+ lines)
 │   │   ├── Tools: execute_method, batch_execute
-│   │   ├── Resources: 10+ discovery resources
-│   │   ├── Prompts: 3 user-facing templates
+│   │   ├── Resources: discovery resources
+│   │   ├── Prompts: user-facing templates
 │   │   └── Smart Limits: Automatic data size protection
 │   └── odoo_client.py           # Odoo API client (500+ lines)
 │       ├── JSON-2 API support (Bearer token)
@@ -141,7 +140,7 @@ mcp-odoo-adv/
 ├── pyproject.toml               # Package config (setuptools, Python 3.10+)
 ├── fastmcp.json                 # MCP metadata
 ├── README.md                    # User documentation
-├── COOKBOOK.md                  # 40+ usage examples
+├── COOKBOOK.md                  # 40+ usage examples for your personal knowledge
 ├── USER_GUIDE.md                # Setup guide
 ├── CHANGELOG.md                 # Version history
 └── DOCS/

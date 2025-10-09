@@ -62,7 +62,7 @@ This release represents a fundamental shift in philosophy - from maintaining mul
 - Minimalist philosophy front and center
 - "What We Removed (And Why)" section
 - Smart limits documentation
-- uvx installation as Option 1
+- uvx installation as Option
 
 **Core Tools**:
 - `execute_method`: Enhanced with smart limits for search methods
@@ -95,6 +95,45 @@ By focusing on two universal tools and comprehensive documentation, we've create
 - More reliable (fewer moving parts)
 - Same functionality (full Odoo API access)
 - Better user experience (smart limits prevent mistakes)
+
+## [1.0.0-beta.2] - 2025-01-10
+
+### Added
+
+**Documentation**:
+- 📖 **USER_GUIDE.md**: Comprehensive step-by-step setup guide for new users
+- 📖 **CLAUDE.md**: AI assistant guidance for working in this codebase
+- Enhanced `.env.example` with API version and HTTP transport configuration examples
+- .claude directory support with .gitignore exclusion for local AI assistant config
+
+**Dependencies**:
+- `python-dotenv` for automatic .env file loading
+- Expanded project keywords (odoo 17, odoo 18, odoo 19, docker, etc.)
+
+### Changed
+
+**Branding**:
+- Renamed "Odoo MCP Server" → "Advanced Odoo MCP Server" throughout codebase
+- Updated all server startup messages and documentation
+
+**Infrastructure**:
+- Docker base image: Python 3.12 → 3.13 for SSE and HTTP transports
+- Claude Desktop configuration: Reordered options for better UX
+
+**Documentation**:
+- README.md: Complete rewrite for first-time users with clearer installation flow
+- Enhanced acknowledgment text for original author contribution
+- Code formatting improvements across `run_server*.py` files
+
+### Fixed
+
+- README Installation section order to match Claude Desktop setup flow
+- Markdown inconsistencies and formatting errors across documentation
+- Docker build configuration issues
+
+### Removed
+
+- Phase 1 code quality improvements (broken config.py module)
 
 ## [Unreleased]
 

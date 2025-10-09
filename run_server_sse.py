@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Run the Odoo MCP server with SSE (Server-Sent Events) transport.
+Run the Advanced Odoo MCP server with SSE (Server-Sent Events) transport.
 
 SSE transport enables web browsers and HTTP clients to connect to the MCP server
 via Server-Sent Events, providing real-time streaming capabilities over HTTP.
@@ -47,7 +47,7 @@ class TeeLogger:
 
     def __del__(self):
         """Ensure file is closed when TeeLogger is destroyed"""
-        if hasattr(self, 'log') and self.log:
+        if hasattr(self, "log") and self.log:
             try:
                 self.log.close()
             except:
@@ -72,7 +72,9 @@ class TeeLogger:
 
 sys.stderr = TeeLogger(log_file)
 
-print(f"[{datetime.now().isoformat()}] Starting Odoo MCP Server (SSE Transport)")
+print(
+    f"[{datetime.now().isoformat()}] Starting Advanced Odoo MCP Server (SSE Transport)"
+)
 print(f"Logging to: {log_file}")
 
 from src.odoo_mcp.server import mcp

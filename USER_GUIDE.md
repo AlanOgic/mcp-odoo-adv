@@ -153,6 +153,39 @@ Edit your Claude Desktop configuration file:
 }
 ```
 
+**Option 3: Using Docker**
+
+```json
+{
+  "mcpServers": {
+    "odoo": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "ODOO_URL=https://your-instance.odoo.com",
+        "-e", "ODOO_DB=your-database-name",
+        "-e", "ODOO_USERNAME=your-email@company.com",
+        "-e", "ODOO_PASSWORD=your-password-or-api-key",
+        "alanogic/mcp-odoo-adv:latest"
+      ]
+    }
+  }
+}
+```
+
+Or with `.env` file:
+
+```json
+{
+  "mcpServers": {
+    "odoo": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "--env-file", "/absolute/path/to/.env", "alanogic/mcp-odoo-adv:latest"]
+    }
+  }
+}
+```
+
 **Benefits of uvx**:
 - No installation needed - uvx downloads and runs automatically
 - No path configuration required

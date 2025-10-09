@@ -1,8 +1,8 @@
-# Dockerfile for Odoo MCP Server with SSE Transport
+# Dockerfile for Advanced Odoo MCP Server with SSE Transport
 # Build: docker build -t alanogic/mcp-odoo-adv:sse -f Dockerfile.sse .
 # Run: docker run -p 8009:8009 --env-file .env alanogic/mcp-odoo-adv:sse
 
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VERSION=3.13
 FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app

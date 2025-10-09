@@ -2,9 +2,7 @@
 
 **Two tools. Infinite possibilities. Full Odoo API access.**
 
-An advanced MCP (Model Context Protocol) server implementation for Odoo ERP systems, enabling AI assistants to interact with Odoo data and functionality through the standardized Model Context Protocol.
-
-**Forked from [tuanle96/mcp-odoo](https://github.com/tuanle96/mcp-odoo)** - Thanks to Lê Anh Tuấn for the excellent foundation.
+An advanced MCP (Model Context Protocol) server implementation for Odoo ERP systems, enabling AI assistants to interact with Odoo data and functionality using STDIO, SSE, StreamingHttp.
 
 ---
 
@@ -17,9 +15,9 @@ Connect AI assistants to Odoo with just **two universal tools**:
 
 No complexity. No limitations. Full Odoo API access.
 
-### What You Can Do
+### To rule them all. What You Can Do
 
-Everything you need to automate, query, and manage your Odoo instance through AI.
+Everything you need, just ask AI: automate, query, manage, customize, develop new modules, integrate with external systems, enhance your Odoo instance through AI.
 
 ---
 
@@ -33,7 +31,11 @@ Everything you need to automate, query, and manage your Odoo instance through AI
 # From source
 git clone https://github.com/AlanOgic/mcp-odoo-adv.git
 cd mcp-odoo-adv
-pip install -e ".[dev]"
+# Virtual Environment
+python3 -m venv .venv
+source .venv/bin/activate
+# Installation
+pip install -e .
 ```
 
 **Option 2: Using uvx (No Installation)**
@@ -46,9 +48,36 @@ uvx --from odoo-mcp odoo-mcp
 uvx --from . odoo-mcp
 ```
 
+**Option 3: Using Docker**
+
+```bash
+# build STDIO
+docker build -t alanogic/mcp-odoo-adv:latest -f Dockerfile .
+
+# build SSE
+docker build -t alanogic/mcp-odoo-adv-sse:latest -f Dockerfile.sse .
+
+# build HTTP
+docker build -t alanogic/mcp-odoo-adv-http:latest -f Dockerfile.http .
+
+# Run STDIO
+docker run --env-file .env alanogic/mcp-odoo-adv:latest
+
+# Run SSE
+docker run --env-file .env alanogic/mcp-odoo-adv-sse:latest
+
+# Run HTTP
+docker run --env-file .env alanogic/mcp-odoo-adv-http:latest
+```
+
 ### Configuration
 
-Create a `.env` file:
+Create a `.env` file (minimum):
+
+```bash
+cp .env.example .env
+nano .env
+```
 
 ```bash
 ODOO_URL=https://your-odoo-instance.com
@@ -107,6 +136,39 @@ Add to `claude_desktop_config.json`:
         "ODOO_USERNAME": "your-username",
         "ODOO_PASSWORD": "your-password"
       }
+    }
+  }
+}
+```
+
+**Option 3: Using Docker**
+
+```json
+{
+  "mcpServers": {
+    "odoo": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "ODOO_URL=https://your-instance.odoo.com",
+        "-e", "ODOO_DB=your-database",
+        "-e", "ODOO_USERNAME=your-username",
+        "-e", "ODOO_PASSWORD=your-password",
+        "alanogic/mcp-odoo-adv:latest"
+      ]
+    }
+  }
+}
+```
+
+Or with `.env` file:
+
+```json
+{
+  "mcpServers": {
+    "odoo": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "--env-file", "/absolute/path/to/.env", "alanogic/mcp-odoo-adv:latest"]
     }
   }
 }
@@ -215,7 +277,7 @@ batch_execute(
 
 ---
 
-## 🎓 Learn by Example
+## 🎓 Learn with examples
 
 ### Example 1: Find Employees
 
@@ -285,7 +347,7 @@ batch_execute(
 - Stable, production-ready implementation
 
 **4. Flexible**
-- Works with any Odoo version (14+)
+- Works with several Odoo version (14+)
 - Supports all Odoo models and methods
 - Extensible through Odoo's native capabilities
 

@@ -50,3 +50,4 @@ logs/
 # Development files
 detach
 odoo_config.json
+.env

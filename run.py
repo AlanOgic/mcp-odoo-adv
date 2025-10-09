@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 def print_banner():
-    """Print majestic ASCII art banner"""
+    """Print ASCII art banner"""
     banner = r"""
     ╔══════════════════════════════════════════════════════════════════════════╗
     ║                                                                          ║
@@ -27,7 +27,7 @@ def print_banner():
     ║                                                                          ║
     ╚══════════════════════════════════════════════════════════════════════════╝
 
-                                v1.0.0-beta
+            v1.0.0-beta                     by AlanOgic | info@alanogic.com
     """
     print(banner)
 

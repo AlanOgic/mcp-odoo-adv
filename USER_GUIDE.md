@@ -14,6 +14,7 @@ By the end of this guide, you will:
 - Execute Odoo operations through natural language
 - Automate business workflows with AI assistance
 - Query and analyze your Odoo data
+- Create a new module to track customer feedback
 
 **Time to complete**: 10 minutes
 
@@ -24,9 +25,9 @@ By the end of this guide, you will:
 Before you start, ensure you have:
 
 - **Odoo instance**: Version 14+ (on-premise or cloud)
-- **Odoo credentials**: Username and password/API key with appropriate permissions
+- **Odoo credentials**: Username and API key with appropriate permissions
 - **Python 3.10+**: Installed on your system
-- **Claude Desktop** (optional): For the interactive quick-start
+- **Claude Desktop** (optional): For the MCP client & quick-start (any MCP client would Works)
 
 ### Check your Python version
 
@@ -48,13 +49,12 @@ This quick-start gets you running with STDIO transport (ideal for Claude Desktop
 git clone https://github.com/AlanOgic/mcp-odoo-adv.git
 cd mcp-odoo-adv
 
+# Virtual environment setup (recommended)
+python3 -m venv venv
+source venv/bin/activate
+
 # Install dependencies
 pip install -e .
-```
-
-**Verify installation**:
-```bash
-python3 -c "from odoo_mcp import server; print('✅ Installation successful')"
 ```
 
 ### Step 2: Configure your Odoo connection
@@ -90,22 +90,19 @@ python3 run_server.py
 You should see:
 
 ```
-╔══════════════════════════════════════════════════════════════════════════╗
-║                          ODOO MCP SERVER                                  ║
-║              Two tools. Infinite possibilities. Full API access.         ║
-╚══════════════════════════════════════════════════════════════════════════╝
-
-Odoo client configuration:
-  URL: https://your-instance.odoo.com
-  Database: your-database-name
-  Username: your-email@company.com
-  ✅ Authenticated successfully with UID: 2
+Connecting to Odoo at: https://yourdatabase.odoo.com
+  Hostname: yourdatabase.odoo.com
+  Timeout: 30s, Verify SSL: True
+  JSON-RPC endpoint: https://yourdatabase.odoo.com/jsonrpc
+Authenticating with database: yourdatabase, username: your@registereduser.email
+  Authenticated successfully with UID: X
 ```
 
 **If authentication fails**:
 - Verify your `ODOO_URL` includes `https://`
 - Confirm `ODOO_DB` matches your database name exactly
-- Check that `ODOO_USERNAME` and `ODOO_PASSWORD` are correct
+- Check that `ODOO_USERNAME` is correct
+- `ODOO_PASSWORD` is user profile's API key
 - Ensure your user has API access permissions
 
 ### Step 4: Connect to Claude Desktop
@@ -189,109 +186,9 @@ That's it. No specialized tools needed—you have full Odoo API access.
 
 ### Why this works
 
-```python
-# Instead of specialized tools like "search_employee":
-execute_method(
-    model="hr.employee",
-    method="search_read",
-    kwargs_json='{"domain": [["name", "ilike", "john"]]}'
-)
+Instead of using specialised tools, the client uses the 'execute_method' and 'batch_execute' tools, which can do anything you need.
+Just begin a new conversation by "use your odoo mcp tools to ..."
 
-# Instead of specialized tools like "create_customer":
-execute_method(
-    model="res.partner",
-    method="create",
-    args_json='[{"name": "Acme Corp", "email": "contact@acme.com"}]'
-)
-```
-
-You learn one pattern, get access to everything.
-
-### Smart limits protect you
-
-The server automatically applies safe limits:
-
-- **Default limit**: 100 records (prevents massive data returns)
-- **Maximum limit**: 1000 records (hard cap)
-- **Override**: Set your own limit in `kwargs_json`
-
-```python
-# Safe: auto-limited to 100 records
-execute_method(model="mail.message", method="search_read")
-
-# Custom: explicit limit
-execute_method(
-    model="mail.message",
-    method="search_read",
-    kwargs_json='{"limit": 50}'
-)
-```
-
----
-
-## Common tasks
-
-### Search for customers
-
-```python
-execute_method(
-    model="res.partner",
-    method="search_read",
-    args_json='[[["customer_rank", ">", 0]]]',
-    kwargs_json='{"fields": ["name", "email", "phone"], "limit": 20}'
-)
-```
-
-### Create a sales order
-
-```python
-execute_method(
-    model="sale.order",
-    method="create",
-    args_json='[{
-        "partner_id": 8,
-        "order_line": [
-            [0, 0, {
-                "product_id": 5,
-                "product_uom_qty": 2,
-                "price_unit": 50.00
-            }]
-        ]
-    }]'
-)
-```
-
-### Update records
-
-```python
-execute_method(
-    model="res.partner",
-    method="write",
-    args_json='[[1, 2, 3], {"phone": "+1234567890"}]'
-)
-```
-
-### Run batch operations
-
-```python
-batch_execute(
-    operations=[
-        {
-            "model": "res.partner",
-            "method": "create",
-            "args_json": '[{"name": "New Customer"}]'
-        },
-        {
-            "model": "sale.order",
-            "method": "create",
-            "args_json": '[{"partner_id": 123}]'
-        }
-    ],
-    atomic=True  # All succeed or all rollback
-)
-```
-
-**See [COOKBOOK.md](COOKBOOK.md) for 40+ more examples.**
 
 ---
 
@@ -302,21 +199,21 @@ The server supports three transport modes for different use cases:
 ### STDIO (Claude Desktop)
 
 **Best for**: Claude Desktop integration
-**Command**: `python run_server.py` → select option 1
+**Command**: `python run_server.py` or `./run.py` -> select option 1
 **Connection**: Process pipes (stdin/stdout)
 **Network**: Not required
 
 ### SSE (Web browsers)
 
 **Best for**: Web-based AI clients
-**Command**: `python run_server_sse.py`
+**Command**: `python run_server_sse.py` or `./run.py` -> select option 2
 **URL**: `http://0.0.0.0:8009/sse`
 **Protocol**: Server-Sent Events
 
 ### HTTP (API integrations)
 
 **Best for**: Custom applications
-**Command**: `python run_server_http.py`
+**Command**: `python run_server_http.py`or `./run.py` -> select option 3
 **URL**: `http://0.0.0.0:8008/mcp`
 **Protocol**: Streamable HTTP
 
@@ -389,7 +286,7 @@ Use these MCP resources in Claude:
 
 - **Issues**: [GitHub Issues](https://github.com/AlanOgic/mcp-odoo-adv/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/AlanOgic/mcp-odoo-adv/discussions)
-- **Original project**: [mcp-odoo](https://github.com/tuanle96/mcp-odoo) by Lê Anh Tuấn
+- **execute_method**: [mcp-odoo](https://github.com/tuanle96/mcp-odoo) by Lê Anh Tuấn
 
 ---
 
@@ -445,10 +342,10 @@ pip install python-dotenv
 
 Now that you're connected, try these tasks:
 
-1. **Query your data**: "Show me customers from France"
-2. **Create records**: "Create a new sales order for customer #8"
-3. **Automate workflows**: "Find all unpaid invoices and send reminders"
-4. **Generate reports**: "Summarize this month's sales by product category"
+1. **Query your data**: "Show my customers from France"
+2. **Automate workflows**: "Find all unpaid invoices and send reminders"
+3. **Generate reports**: "Summarize this month's sales by product category"
+4. **Custom module**: "Create a new module to track customer feedback"
 
 Explore the [COOKBOOK.md](COOKBOOK.md) for detailed examples and patterns.
 

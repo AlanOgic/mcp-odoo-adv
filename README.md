@@ -19,20 +19,6 @@ No complexity. No limitations. Full Odoo API access.
 
 ### What You Can Do
 
-```python
-# Search employees
-execute_method(model="hr.employee", method="search_read",
-               kwargs_json='{"domain": [["name", "ilike", "john"]]}')
-
-# Manage time off requests
-execute_method(model="hr.leave", method="search_read",
-               kwargs_json='{"domain": [["date_from", ">=", "2025-01-01"]]}')
-
-# Read customer data with relations
-execute_method(model="res.partner", method="read",
-               args_json='[[263], ["name", "country_id", "invoice_ids"]]')
-```
-
 Everything you need to automate, query, and manage your Odoo instance through AI.
 
 ---

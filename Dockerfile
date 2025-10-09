@@ -1,6 +1,6 @@
 # Supports Python 3.10-3.13, using 3.12 as stable baseline
 # To use Python 3.13: docker build --build-arg PYTHON_VERSION=3.13 -t alanogic/mcp-odoo-adv:latest .
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VERSION=3.13
 FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app
@@ -44,4 +44,4 @@ RUN chmod +x run_server.py
 ENV PYTHONUNBUFFERED=1
 
 # Run the custom MCP server script instead of the module
-ENTRYPOINT ["python", "run_server.py"] 
+ENTRYPOINT ["python", "run_server.py"]

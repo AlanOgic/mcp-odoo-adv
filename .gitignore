@@ -35,7 +35,7 @@ logs/
 
 # Claude Code private files
 .claude/
-
+CLAUDE.md
 # Odoo specific
 odoo_config.json
 
@@ -55,8 +55,7 @@ coverage.xml
 .hypothesis/
 
 # Environment files
-.env.*
-!.env.example
+.env
 
 # Docker
 .dockerignore

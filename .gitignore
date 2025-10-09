@@ -32,7 +32,9 @@ logs/
 .env.development.local
 .env.test.local
 .env.production.local
-.claude/agents
+
+# Claude Code private files
+.claude/
 
 # Odoo specific
 odoo_config.json

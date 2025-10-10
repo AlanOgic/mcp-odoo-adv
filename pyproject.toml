@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "GPL-3.0-or-later"}
 classifiers = [
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -22,8 +22,7 @@ keywords = ["odoo", "odoo 17", "odoo 18", "odoo 19", "mcp", "odoo-mcp", "mcp ser
 authors = [
     {name = "Alan Ogic", email = "info@alanogic.com"}
 ]
-# 'execute_method' discovered in the XMLRPC osoo mcp from tuanle96/mcp-odoo by Lê Anh Tuấn, thanks to him for opening my understanding od mcp
-#
+
 dependencies = [
     "fastmcp>=2.12.0",
     "requests>=2.31.0",

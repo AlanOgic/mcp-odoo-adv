@@ -327,7 +327,6 @@ Use these MCP resources in Claude:
 
 - **Issues**: [GitHub Issues](https://github.com/AlanOgic/mcp-odoo-adv/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/AlanOgic/mcp-odoo-adv/discussions)
-- **execute_method**: [mcp-odoo](https://github.com/tuanle96/mcp-odoo) by Lê Anh Tuấn
 
 ---
 

@@ -137,7 +137,13 @@ By focusing on two universal tools and comprehensive documentation, we've create
 
 ## [Unreleased]
 
-No unreleased changes at this time.
+### Changed
+
+**Legal**:
+- **License**: Changed from MIT License to GNU General Public License v3.0 or later (GPL-3.0-or-later)
+  - Ensures all derivative works remain open source
+  - Protects against proprietary forks
+  - Updated in: LICENSE, pyproject.toml, fastmcp.json, README.md
 
 ## [0.0.4] - 2025-01-XX
 

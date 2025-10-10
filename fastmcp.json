@@ -4,7 +4,7 @@
   "entrypoint": "src/odoo_mcp/server.py",
   "description": "Advanced MCP Server for Odoo with Multiple Transport Support (STDIO, SSE, HTTP)",
   "author": "Alan Ogic <info@alanogic.com>",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "repository": "https://github.com/AlanOgic/mcp-odoo-adv",
   "keywords": ["odoo", "mcp", "server", "stdio", "sse", "streaming", "http"],
   "environment": {

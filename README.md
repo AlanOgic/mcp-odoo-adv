@@ -76,7 +76,7 @@ Create a `.env` file (minimum):
 
 ```bash
 cp .env.example .env
-nano .env
+vim .env
 ```
 
 ```bash
@@ -467,7 +467,9 @@ Contributions welcome! Please:
 
 ## 📝 License
 
-MIT License - See [LICENSE](LICENSE) file
+GNU General Public License v3.0 or later (GPL-3.0-or-later) - See [LICENSE](LICENSE) file
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
 ---
 

@@ -122,24 +122,38 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-**Option 2: Using uvx (Simpler Alternative)**
+**Option 2: Using uvx (Recommended - No Installation)**
+
+First, create your credentials in `~/.config/odoo/.env`:
+
+```bash
+mkdir -p ~/.config/odoo
+cat > ~/.config/odoo/.env << 'EOF'
+ODOO_URL=https://your-instance.odoo.com
+ODOO_DB=your-database
+ODOO_USERNAME=your-username
+ODOO_PASSWORD=your-password
+EOF
+```
+
+Then add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "odoo": {
       "command": "uvx",
-      "args": ["--from", "odoo-mcp", "odoo-mcp"],
-      "env": {
-        "ODOO_URL": "https://your-instance.odoo.com",
-        "ODOO_DB": "your-database",
-        "ODOO_USERNAME": "your-username",
-        "ODOO_PASSWORD": "your-password"
-      }
+      "args": ["--from", "odoo-mcp", "odoo-mcp"]
     }
   }
 }
 ```
+
+**Benefits:**
+- No installation required - uvx downloads and runs automatically
+- Credentials stored securely in `.env` file (not in config)
+- Always uses the latest published version
+- Works from anywhere on your system
 
 **Option 3: Using Docker**
 

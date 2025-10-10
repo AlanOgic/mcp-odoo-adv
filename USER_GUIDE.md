@@ -25,9 +25,9 @@ By the end of this guide, you will:
 Before you start, ensure you have:
 
 - **Odoo instance**: Version 14+ (on-premise or cloud)
-- **Odoo credentials**: Username and API key with appropriate permissions
+- **Odoo credentials**: Username and API key (Odoo user profile -> Account Security -> New API Key)
 - **Python 3.10+**: Installed on your system
-- **Claude Desktop** (optional): For the MCP client & quick-start (any MCP client would Works)
+- **Claude Desktop**: for the quick-start (any other MCP client Works)
 
 ### Check your Python version
 
@@ -134,20 +134,28 @@ Edit your Claude Desktop configuration file:
 
 **Replace** `/absolute/path/to/mcp-odoo-adv` with your actual project path (e.g., `/Users/yourname/projects/mcp-odoo-adv`).
 
-**Option 2: Using uvx (Simpler Alternative)**
+**Option 2: Using uvx (Recommended - No Installation)**
+
+First, create your credentials in `~/.config/odoo/.env`:
+
+```bash
+mkdir -p ~/.config/odoo
+cat > ~/.config/odoo/.env << 'EOF'
+ODOO_URL=https://your-instance.odoo.com
+ODOO_DB=your-database-name
+ODOO_USERNAME=your-email@company.com
+ODOO_PASSWORD=your-password-or-api-key
+EOF
+```
+
+Then add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "odoo": {
       "command": "uvx",
-      "args": ["--from", "odoo-mcp", "odoo-mcp"],
-      "env": {
-        "ODOO_URL": "https://your-instance.odoo.com",
-        "ODOO_DB": "your-database-name",
-        "ODOO_USERNAME": "your-email@company.com",
-        "ODOO_PASSWORD": "your-password-or-api-key"
-      }
+      "args": ["--from", "odoo-mcp", "odoo-mcp"]
     }
   }
 }

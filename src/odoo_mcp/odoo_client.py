@@ -12,9 +12,6 @@ from typing import Any, Dict, List, Optional
 import requests
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
-
 
 class OdooClient:
     """Client for interacting with Odoo via JSON-RPC or JSON-2 API"""
@@ -409,19 +406,32 @@ class OdooClient:
 
 def load_config():
     """
-    Load Odoo configuration from environment variables or config file
+    Load Odoo configuration from .env file, environment variables, or config file
+
+    Priority order:
+    1. Search for .env file in common locations and load it
+    2. Check environment variables (may have been set by .env)
+    3. Fall back to JSON config files
 
     Returns:
         dict: Configuration dictionary with url, db, username, password
     """
-    # Define config file paths to check
-    config_paths = [
-        "./odoo_config.json",
-        os.path.expanduser("~/.config/odoo/config.json"),
-        os.path.expanduser("~/.odoo_config.json"),
+    # Define .env file paths to check (in priority order)
+    env_paths = [
+        ".env",  # Current directory
+        os.path.expanduser("~/.config/odoo/.env"),  # User config directory
+        os.path.expanduser("~/.env"),  # User home directory
     ]
 
-    # Try environment variables first
+    # Try to load .env file from common locations
+    for env_path in env_paths:
+        expanded_path = os.path.expanduser(env_path)
+        if os.path.exists(expanded_path):
+            print(f"Loading configuration from: {expanded_path}", file=sys.stderr)
+            load_dotenv(dotenv_path=expanded_path, override=True)
+            break
+
+    # Check environment variables (may have been set by .env file)
     if all(
         var in os.environ
         for var in ["ODOO_URL", "ODOO_DB", "ODOO_USERNAME", "ODOO_PASSWORD"]
@@ -433,15 +443,24 @@ def load_config():
             "password": os.environ["ODOO_PASSWORD"],
         }
 
-    # Try to load from file
+    # Fall back to JSON config files
+    config_paths = [
+        "./odoo_config.json",
+        os.path.expanduser("~/.config/odoo/config.json"),
+        os.path.expanduser("~/.odoo_config.json"),
+    ]
+
     for path in config_paths:
         expanded_path = os.path.expanduser(path)
         if os.path.exists(expanded_path):
+            print(f"Loading configuration from: {expanded_path}", file=sys.stderr)
             with open(expanded_path, "r") as f:
                 return json.load(f)
 
     raise FileNotFoundError(
-        "No Odoo configuration found. Please create an odoo_config.json file or set environment variables."
+        "No Odoo configuration found. Please create a .env file, set environment variables, or create an odoo_config.json file.\n"
+        "Searched for .env in:\n  " + "\n  ".join(env_paths) + "\n"
+        "Searched for JSON config in:\n  " + "\n  ".join(config_paths)
     )
 
 

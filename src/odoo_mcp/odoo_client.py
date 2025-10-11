@@ -413,15 +413,27 @@ def load_config():
     2. Check environment variables (may have been set by .env)
     3. Fall back to JSON config files
 
+    Environment Variables:
+        ODOO_CONFIG_DIR: Custom directory to search for .env file (highest priority)
+
     Returns:
         dict: Configuration dictionary with url, db, username, password
     """
     # Define .env file paths to check (in priority order)
-    env_paths = [
+    env_paths = []
+
+    # Check for custom config directory (highest priority)
+    custom_config_dir = os.environ.get("ODOO_CONFIG_DIR")
+    if custom_config_dir:
+        custom_env_path = os.path.join(os.path.expanduser(custom_config_dir), ".env")
+        env_paths.append(custom_env_path)
+
+    # Standard paths
+    env_paths.extend([
         ".env",  # Current directory
         os.path.expanduser("~/.config/odoo/.env"),  # User config directory
         os.path.expanduser("~/.env"),  # User home directory
-    ]
+    ])
 
     # Try to load .env file from common locations
     for env_path in env_paths:

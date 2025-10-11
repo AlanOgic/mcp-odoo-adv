@@ -51,3 +51,8 @@ logs/
 detach
 odoo_config.json
 .env
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore

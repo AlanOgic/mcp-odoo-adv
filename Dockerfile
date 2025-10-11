@@ -1,6 +1,6 @@
 # Supports Python 3.10-3.13, using 3.12 as stable baseline
 # To use Python 3.13: docker build --build-arg PYTHON_VERSION=3.13 -t alanogic/mcp-odoo-adv:latest .
-ARG PYTHON_VERSION=3.13
+ARG PYTHON_VERSION=3.12
 FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app
@@ -28,13 +28,13 @@ RUN pip install --no-cache-dir -e .
 # Create logs directory
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 
-# Set environment variables (can be overridden at runtime)
-ENV ODOO_URL=""
-ENV ODOO_DB=""
-ENV ODOO_USERNAME=""
-# ENV ODOO_PASSWORD=""
-ENV ODOO_TIMEOUT="30"
-ENV ODOO_VERIFY_SSL="1"
+# Prefer ".env" file | Set environment variables (can be overridden at runtime)
+# ENV ODOO_URL=""
+#ENV ODOO_DB=""
+#ENV ODOO_USERNAME=""
+## ENV ODOO_PASSWORD=""
+#ENV ODOO_TIMEOUT="30"
+#ENV ODOO_VERIFY_SSL="1"
 ENV DEBUG="0"
 
 # Make run_server.py executable

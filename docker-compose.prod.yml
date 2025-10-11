@@ -1,0 +1,67 @@
+services:
+  odoo-mcp-sse:
+    image: alanogic/mcp-odoo-adv:sse
+    env_file: .env
+    ports:
+      - "8009:8009"
+    volumes:
+      - logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - odoo-mcp-network
+
+  odoo-mcp-http:
+    image: alanogic/mcp-odoo-adv:http
+    env_file: .env
+    ports:
+      - "8008:8008"
+    volumes:
+      - logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - odoo-mcp-network
+
+volumes:
+  logs:
+
+networks:
+  odoo-mcp-network:
+    driver: bridge

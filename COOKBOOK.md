@@ -7,11 +7,19 @@ This guide shows you how to use `execute_method` and `batch_execute` to accompli
 ## Installation
 
 ```bash
-# Run with uvx (no installation needed!)
-uvx --from odoo-mcp odoo-mcp
+# install in virtual environment pipx
+pipx install -e .
 
-# Or install traditionally
+# Install traditionally
 pip install -e .
+
+# Run with uv, uvx, python
+uv --directory /absolute/path/of/mcp-odoo-adv odoo-mcp
+uvx --no-cache --directory /absolute/path/of/mcp-odoo-adv odoo-mcp
+python -m odoo_mcp
+python run_server.py
+python run_server_sse.py
+python run_server_html.py
 ```
 
 ## Table of Contents

@@ -41,11 +41,9 @@ pip install -e .
 **Option 2: Using uvx (No Installation)**
 
 ```bash
-# Run directly without installation
-uvx --from odoo-mcp odoo-mcp
-
-# Or from source directory
+# From source directory
 uvx --from . odoo-mcp
+
 ```
 
 **Option 3: Using Docker**
@@ -85,6 +83,28 @@ ODOO_DB=your-database-name
 ODOO_USERNAME=your-username
 ODOO_PASSWORD=your-password-or-api-key
 ```
+
+**Optional: Custom Configuration Directory**
+
+Organize multiple Odoo configurations by setting a custom directory:
+
+```bash
+# Create custom config directory
+export ODOO_CONFIG_DIR=~/mcp-odoo-env
+mkdir -p $ODOO_CONFIG_DIR
+
+# Copy and configure
+cp .env.example $ODOO_CONFIG_DIR/.env
+vim $ODOO_CONFIG_DIR/.env
+
+# Run server (automatically uses custom directory)
+python run_server.py
+```
+
+This is useful for:
+- Managing multiple Odoo instances (dev, staging, production)
+- Organizing configs outside project directory
+- Docker/Compose deployments with volume mounts
 
 ### Run Server
 
@@ -441,9 +461,11 @@ Common search operators:
 
 1. **[USER_GUIDE.md](USER_GUIDE.md)** - Complete setup guide with 5-minute quick-start
 2. **[COOKBOOK.md](COOKBOOK.md)** - 45+ practical examples for common tasks
-3. **[TRANSPORTS.md](DOCS/TRANSPORTS.md)** - Connection options (STDIO, SSE, HTTP)
-4. **[CLAUDE.md](DOCS/CLAUDE.md)** - Technical reference and architecture
-5. **[CHANGELOG.md](CHANGELOG.md)** - Version history and updates
+3. **[DOCKER.md](DOCS/DOCKER.md)** - Docker deployment guide (containers, compose, production)
+4. **[COOLIFY.md](DOCS/COOLIFY.md)** - Coolify deployment guide (Git repository, auto-deploy)
+5. **[TRANSPORTS.md](DOCS/TRANSPORTS.md)** - Connection options (STDIO, SSE, HTTP)
+6. **[CLAUDE.md](DOCS/CLAUDE.md)** - Technical reference and architecture
+7. **[CHANGELOG.md](CHANGELOG.md)** - Version history and updates
 
 ---
 

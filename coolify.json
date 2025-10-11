@@ -1,0 +1,283 @@
+{
+  "name": "Odoo MCP Server",
+  "description": "MCP server for Odoo ERP - StreamingHTTP and SSE transports",
+  "version": "1.0.0",
+  "repository": "https://github.com/AlanOgic/mcp-odoo-adv",
+  "documentation": "https://github.com/AlanOgic/mcp-odoo-adv/blob/master/README.md",
+
+  "services": {
+    "odoo-mcp-http": {
+      "name": "Odoo MCP HTTP",
+      "description": "StreamingHTTP transport for API integrations (port 8008)",
+      "dockerfile": "Dockerfile.http",
+      "compose_file": "docker-compose.coolify.yml",
+      "service_name": "odoo-mcp-http",
+      "port": 8008,
+      "protocol": "http",
+
+      "health_check": {
+        "enabled": true,
+        "path": "/health",
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3
+      },
+
+      "environment_variables": {
+        "required": [
+          {
+            "name": "ODOO_URL",
+            "description": "Odoo instance URL (e.g., https://your-instance.odoo.com)",
+            "example": "https://demo.odoo.com"
+          },
+          {
+            "name": "ODOO_DB",
+            "description": "Odoo database name",
+            "example": "my-database"
+          },
+          {
+            "name": "ODOO_USERNAME",
+            "description": "Odoo username or email",
+            "example": "admin"
+          },
+          {
+            "name": "ODOO_PASSWORD",
+            "description": "Odoo password or API key",
+            "example": "your-password-or-api-key",
+            "sensitive": true
+          }
+        ],
+        "optional": [
+          {
+            "name": "ODOO_API_VERSION",
+            "description": "Odoo API version: json-2 (Odoo 19+) or json-rpc (legacy)",
+            "default": "json-2",
+            "example": "json-2"
+          },
+          {
+            "name": "ODOO_API_KEY",
+            "description": "Odoo API key for JSON-2 authentication (replaces password)",
+            "example": "your-api-key",
+            "sensitive": true
+          },
+          {
+            "name": "ODOO_TIMEOUT",
+            "description": "Connection timeout in seconds",
+            "default": "30",
+            "example": "30"
+          },
+          {
+            "name": "ODOO_VERIFY_SSL",
+            "description": "Enable SSL certificate verification (1=enabled, 0=disabled)",
+            "default": "1",
+            "example": "1"
+          },
+          {
+            "name": "HTTP_PROXY",
+            "description": "HTTP proxy URL",
+            "example": "http://proxy.company.com:8080"
+          },
+          {
+            "name": "HTTPS_PROXY",
+            "description": "HTTPS proxy URL",
+            "example": "http://proxy.company.com:8080"
+          },
+          {
+            "name": "DEBUG",
+            "description": "Enable debug logging (1=enabled, 0=disabled)",
+            "default": "0",
+            "example": "0"
+          },
+          {
+            "name": "HTTP_PORT",
+            "description": "HTTP server port",
+            "default": "8008",
+            "example": "8008"
+          }
+        ]
+      },
+
+      "volumes": [
+        {
+          "source": "logs-http",
+          "target": "/app/logs",
+          "description": "Application logs directory"
+        }
+      ],
+
+      "resources": {
+        "cpu": {
+          "limit": "1.0",
+          "reservation": "0.25"
+        },
+        "memory": {
+          "limit": "512M",
+          "reservation": "256M"
+        }
+      }
+    },
+
+    "odoo-mcp-sse": {
+      "name": "Odoo MCP SSE",
+      "description": "Server-Sent Events transport for web browsers (port 8009)",
+      "dockerfile": "Dockerfile.sse",
+      "compose_file": "docker-compose.coolify.yml",
+      "service_name": "odoo-mcp-sse",
+      "port": 8009,
+      "protocol": "http",
+      "profile": "sse",
+
+      "health_check": {
+        "enabled": true,
+        "path": "/health",
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3
+      },
+
+      "environment_variables": {
+        "required": [
+          {
+            "name": "ODOO_URL",
+            "description": "Odoo instance URL (e.g., https://your-instance.odoo.com)",
+            "example": "https://demo.odoo.com"
+          },
+          {
+            "name": "ODOO_DB",
+            "description": "Odoo database name",
+            "example": "my-database"
+          },
+          {
+            "name": "ODOO_USERNAME",
+            "description": "Odoo username or email",
+            "example": "admin"
+          },
+          {
+            "name": "ODOO_PASSWORD",
+            "description": "Odoo password or API key",
+            "example": "your-password-or-api-key",
+            "sensitive": true
+          }
+        ],
+        "optional": [
+          {
+            "name": "ODOO_API_VERSION",
+            "description": "Odoo API version: json-2 (Odoo 19+) or json-rpc (legacy)",
+            "default": "json-2",
+            "example": "json-2"
+          },
+          {
+            "name": "ODOO_API_KEY",
+            "description": "Odoo API key for JSON-2 authentication (replaces password)",
+            "example": "your-api-key",
+            "sensitive": true
+          },
+          {
+            "name": "ODOO_TIMEOUT",
+            "description": "Connection timeout in seconds",
+            "default": "30",
+            "example": "30"
+          },
+          {
+            "name": "ODOO_VERIFY_SSL",
+            "description": "Enable SSL certificate verification (1=enabled, 0=disabled)",
+            "default": "1",
+            "example": "1"
+          },
+          {
+            "name": "DEBUG",
+            "description": "Enable debug logging (1=enabled, 0=disabled)",
+            "default": "0",
+            "example": "0"
+          },
+          {
+            "name": "SSE_PORT",
+            "description": "SSE server port",
+            "default": "8009",
+            "example": "8009"
+          }
+        ]
+      },
+
+      "volumes": [
+        {
+          "source": "logs-sse",
+          "target": "/app/logs",
+          "description": "Application logs directory"
+        }
+      ],
+
+      "resources": {
+        "cpu": {
+          "limit": "1.0",
+          "reservation": "0.25"
+        },
+        "memory": {
+          "limit": "512M",
+          "reservation": "256M"
+        }
+      }
+    }
+  },
+
+  "deployment": {
+    "type": "docker-compose",
+    "file": "docker-compose.coolify.yml",
+    "default_service": "odoo-mcp-http",
+
+    "build": {
+      "context": ".",
+      "cache_from": [
+        "python:3.12-slim"
+      ]
+    },
+
+    "networking": {
+      "default_network": "coolify",
+      "expose_ports": [8008, 8009]
+    }
+  },
+
+  "monitoring": {
+    "logs": {
+      "driver": "json-file",
+      "max_size": "10m",
+      "max_file": 3
+    },
+    "metrics": {
+      "enabled": true,
+      "health_checks": true
+    }
+  },
+
+  "security": {
+    "recommendations": [
+      "Set ODOO_VERIFY_SSL=1 in production",
+      "Use ODOO_API_KEY instead of ODOO_PASSWORD for Odoo 19+",
+      "Configure reverse proxy with SSL/TLS",
+      "Restrict access using Coolify's built-in authentication",
+      "Enable rate limiting on the reverse proxy",
+      "Rotate API keys regularly"
+    ]
+  },
+
+  "quickstart": {
+    "steps": [
+      "1. Create new resource in Coolify (Type: Git Repository)",
+      "2. Set Git repository URL: https://github.com/AlanOgic/mcp-odoo-adv",
+      "3. Set branch: master",
+      "4. Configure environment variables (ODOO_URL, ODOO_DB, ODOO_USERNAME, ODOO_PASSWORD)",
+      "5. Set compose file path: docker-compose.coolify.yml",
+      "6. Select service: odoo-mcp-http (or odoo-mcp-sse)",
+      "7. Deploy",
+      "8. Access at: http://your-coolify-domain:8008 (or :8009 for SSE)"
+    ]
+  },
+
+  "links": {
+    "repository": "https://github.com/AlanOgic/mcp-odoo-adv",
+    "documentation": "https://github.com/AlanOgic/mcp-odoo-adv/blob/master/DOCS/DOCKER.md",
+    "streaminghttp_guide": "https://github.com/AlanOgic/mcp-odoo-adv/blob/master/DOCS/STREAMINGHTTP_GUIDE.md",
+    "cookbook": "https://github.com/AlanOgic/mcp-odoo-adv/blob/master/COOKBOOK.md"
+  }
+}

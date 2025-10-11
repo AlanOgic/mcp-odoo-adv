@@ -1,0 +1,48 @@
+services:
+  # SSE Transport (Web Browsers)
+  odoo-mcp-sse:
+    build:
+      context: .
+      dockerfile: Dockerfile.sse
+      args:
+        PYTHON_VERSION: 3.13
+    env_file: .env
+    ports:
+      - "8009:8009"
+    volumes:
+      - ./logs/sse:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - odoo-mcp-network
+
+  # HTTP Transport (API Integrations)
+  odoo-mcp-http:
+    build:
+      context: .
+      dockerfile: Dockerfile.http
+      args:
+        PYTHON_VERSION: 3.13
+    env_file: .env
+    ports:
+      - "8008:8008"
+    volumes:
+      - ./logs/http:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - odoo-mcp-network
+
+networks:
+  odoo-mcp-network:
+    driver: bridge

@@ -973,26 +973,26 @@ execute_method(
 
 ### How to Use This Section
 
-**Automatic Documentation (Claude's Behavior):**
+**Claude's Workflow (Like Using a User Guide):**
 
-When Claude encounters a complex problem:
+**First attempt - Use tools directly:**
+1. Claude tries `execute_method` or `batch_execute` with your request
+2. If it fails → Claude tries again with different approach
 
-1. **Claude tries different approaches** (tracking failures internally)
-2. **After 4+ failed attempts**, Claude recognizes this is a hard pattern
-3. **Claude finds the working solution**
-4. **Claude AUTOMATICALLY adds the pattern** to this section:
-   - Problem description
-   - All 4+ failed attempts with reasons
-   - The working solution with code
-   - Explanation of WHY it works
-   - Key lesson for next time
-5. **Claude announces**: "**✅ New pattern documented:** [brief explanation]"
+**After 1st failure - Check COOKBOOK:**
+3. Claude reads the **Learned Patterns section** of this COOKBOOK
+4. Looks for similar problems already solved
+5. If found → applies the working pattern
+6. If not found → continues trying new approaches
 
-**This section grows over time as you use the MCP server.**
+**After 4+ failures - Document new pattern:**
+7. Claude finally finds the working solution
+8. Claude AUTOMATICALLY adds the pattern to this section
+9. Claude announces: "**✅ New pattern documented:** [brief explanation]"
 
-Each hard-won pattern becomes institutional knowledge, saving time and tokens in future sessions.
+**This mimics human behavior**: Try first, check manual after failure, document hard-won solutions.
 
-**Automatic threshold**: Claude auto-documents after ≥4 failures. No need to ask!
+**Automatic threshold**: Claude checks COOKBOOK after 1 failure, documents after ≥4 failures.
 
 ---
 

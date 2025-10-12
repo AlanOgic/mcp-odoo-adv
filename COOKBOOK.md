@@ -973,12 +973,14 @@ execute_method(
 
 ### How to Use This Section
 
-**When Claude encounters a complex problem that requires ≥4 failed attempts:**
+**Automatic Documentation (Claude's Behavior):**
 
-1. **Claude tries different approaches** (at least 4 failures)
-2. **Claude finally finds the working solution**
-3. **You say**: *"Document this pattern in the Learned Patterns section"*
-4. **Claude adds**:
+When Claude encounters a complex problem:
+
+1. **Claude tries different approaches** (tracking failures internally)
+2. **After 4+ failed attempts**, Claude recognizes this is a hard pattern
+3. **Claude finds the working solution**
+4. **Claude AUTOMATICALLY adds the pattern** to this section:
    - Problem description
    - All 4+ failed attempts with reasons
    - The working solution with code
@@ -989,7 +991,7 @@ execute_method(
 
 Each hard-won pattern becomes institutional knowledge, saving time and tokens in future sessions.
 
-**Note**: Only patterns with ≥4 failures are worth documenting. Quick 1-2 attempt solutions don't need documentation.
+**Automatic threshold**: Claude auto-documents after ≥4 failures. No need to ask!
 
 ---
 

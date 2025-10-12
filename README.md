@@ -462,10 +462,9 @@ Common search operators:
 1. **[USER_GUIDE.md](USER_GUIDE.md)** - Complete setup guide with 5-minute quick-start
 2. **[COOKBOOK.md](COOKBOOK.md)** - 45+ practical examples for common tasks
 3. **[DOCKER.md](DOCS/DOCKER.md)** - Docker deployment guide (containers, compose, production)
-4. **[COOLIFY.md](DOCS/COOLIFY.md)** - Coolify deployment guide (Git repository, auto-deploy)
-5. **[TRANSPORTS.md](DOCS/TRANSPORTS.md)** - Connection options (STDIO, SSE, HTTP)
-6. **[CLAUDE.md](DOCS/CLAUDE.md)** - Technical reference and architecture
-7. **[CHANGELOG.md](CHANGELOG.md)** - Version history and updates
+4. **[TRANSPORTS.md](DOCS/TRANSPORTS.md)** - Connection options (STDIO, SSE, HTTP)
+5. **[CLAUDE.md](DOCS/CLAUDE.md)** - Technical reference and architecture
+6. **[CHANGELOG.md](CHANGELOG.md)** - Version history and updates
 
 ---
 

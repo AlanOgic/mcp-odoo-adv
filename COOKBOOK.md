@@ -986,6 +986,7 @@ When Claude encounters a complex problem:
    - The working solution with code
    - Explanation of WHY it works
    - Key lesson for next time
+5. **Claude announces**: "**✅ New pattern documented:** [brief explanation]"
 
 **This section grows over time as you use the MCP server.**
 

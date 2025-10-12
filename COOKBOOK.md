@@ -903,4 +903,81 @@ kwargs_json='{"limit": 100}'
 
 ---
 
+## 🧠 Learned Patterns (Experience-Based)
+
+This section documents real-world trial-and-error solutions. When Claude tries multiple approaches before finding the right solution, the working pattern gets documented here for future reference.
+
+### Template for New Patterns
+
+```markdown
+### Pattern: [Brief description of what you're trying to achieve]
+
+**Problem**: [What were you trying to do]
+
+**Failed Approaches**:
+1. ❌ [First attempt] - [Why it failed]
+2. ❌ [Second attempt] - [Why it failed]
+3. ❌ [Third attempt] - [Why it failed]
+
+**Working Solution**:
+```python
+# The approach that worked
+execute_method(
+    model="...",
+    method="...",
+    args_json='...',
+    kwargs_json='...'
+)
+```
+
+**Why It Works**: [Explanation of the key insight]
+
+**Key Lesson**: [The takeaway for next time]
+
+**Related**: [Link to Odoo docs or related patterns if applicable]
+```
+
+---
+
+### Example Pattern: Searching Many2many Fields
+
+**Problem**: Find products that have a specific attribute value assigned
+
+**Failed Approaches**:
+1. ❌ `[["attribute_line_ids", "=", value_id]]` - Can't use "=" on many2many fields
+2. ❌ `[["attribute_line_ids.value_ids", "=", value_id]]` - Invalid dotted notation for nested many2many
+3. ❌ Used `product.product` model - Should use `product.template` for attributes
+
+**Working Solution**:
+```python
+execute_method(
+    model="product.template",
+    method="search_read",
+    args_json='[[["product_template_attribute_value_ids", "in", [123]]]]',
+    kwargs_json='{"fields": ["name", "default_code", "product_template_attribute_value_ids"]}'
+)
+```
+
+**Why It Works**: Many2many fields require the `"in"` operator with a list, even for single values. The correct field is `product_template_attribute_value_ids` (the actual many2many field), not the line container.
+
+**Key Lesson**: For many2many fields, always use `"in"` operator with a list `[["field", "in", [id]]]`, never `"="` with a single ID.
+
+**Related**: [Odoo Many2many Documentation](https://www.odoo.com/documentation/)
+
+---
+
+### How to Use This Section
+
+**When you encounter a complex problem:**
+1. Try different approaches
+2. When you find the solution, document it here
+3. Include failed attempts so others learn what NOT to do
+4. Explain WHY the solution works
+
+**This section grows over time as you use the MCP server more.**
+
+Each pattern becomes institutional knowledge, reducing trial-and-error in future sessions.
+
+---
+
 **Remember**: You have the full Odoo API at your fingertips. These two tools can do anything Odoo can do. 🚀

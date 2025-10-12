@@ -905,7 +905,9 @@ kwargs_json='{"limit": 100}'
 
 ## 🧠 Learned Patterns (Experience-Based)
 
-This section documents real-world trial-and-error solutions. When Claude tries multiple approaches before finding the right solution, the working pattern gets documented here for future reference.
+This section documents real-world trial-and-error solutions. When Claude takes **4 or more failed attempts** before finding the right solution, the working pattern gets documented here for future reference.
+
+**Documentation threshold**: Only add patterns after ≥4 failed attempts (significant trial-and-error worth remembering).
 
 ### Template for New Patterns
 
@@ -914,10 +916,12 @@ This section documents real-world trial-and-error solutions. When Claude tries m
 
 **Problem**: [What were you trying to do]
 
-**Failed Approaches**:
+**Failed Approaches** (minimum 4 required):
 1. ❌ [First attempt] - [Why it failed]
 2. ❌ [Second attempt] - [Why it failed]
 3. ❌ [Third attempt] - [Why it failed]
+4. ❌ [Fourth attempt] - [Why it failed]
+5. ❌ [Fifth attempt] - [Why it failed] (if applicable)
 
 **Working Solution**:
 ```python
@@ -947,6 +951,7 @@ execute_method(
 1. ❌ `[["attribute_line_ids", "=", value_id]]` - Can't use "=" on many2many fields
 2. ❌ `[["attribute_line_ids.value_ids", "=", value_id]]` - Invalid dotted notation for nested many2many
 3. ❌ Used `product.product` model - Should use `product.template` for attributes
+4. ❌ `[["product_template_attribute_value_ids", "=", 123]]` - Single value without list failed
 
 **Working Solution**:
 ```python
@@ -968,15 +973,23 @@ execute_method(
 
 ### How to Use This Section
 
-**When you encounter a complex problem:**
-1. Try different approaches
-2. When you find the solution, document it here
-3. Include failed attempts so others learn what NOT to do
-4. Explain WHY the solution works
+**When Claude encounters a complex problem that requires ≥4 failed attempts:**
 
-**This section grows over time as you use the MCP server more.**
+1. **Claude tries different approaches** (at least 4 failures)
+2. **Claude finally finds the working solution**
+3. **You say**: *"Document this pattern in the Learned Patterns section"*
+4. **Claude adds**:
+   - Problem description
+   - All 4+ failed attempts with reasons
+   - The working solution with code
+   - Explanation of WHY it works
+   - Key lesson for next time
 
-Each pattern becomes institutional knowledge, reducing trial-and-error in future sessions.
+**This section grows over time as you use the MCP server.**
+
+Each hard-won pattern becomes institutional knowledge, saving time and tokens in future sessions.
+
+**Note**: Only patterns with ≥4 failures are worth documenting. Quick 1-2 attempt solutions don't need documentation.
 
 ---
 

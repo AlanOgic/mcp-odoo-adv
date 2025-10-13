@@ -338,3 +338,29 @@ for page in range((total // 100) + 1):
 - All Odoo errors are passed through directly - they're excellent and self-explanatory
 - Use `context7` MCP tool to verify latest Odoo API changes before modifying client code
 - Never add `Claude Code` attribution to commit messages (per user configuration)
+
+## Self-Learning System (IMPORTANT)
+
+**COOKBOOK.md contains a "Learned Patterns" section that grows from experience.**
+
+**Your workflow when using MCP-Odoo tools:**
+
+1. **First attempt**: Use `execute_method` or `batch_execute` directly
+2. **After 1st failure**: Read COOKBOOK.md's **Learned Patterns section**
+   - Check if similar problem already documented
+   - Apply the working pattern if found
+   - Continue trying if not found
+3. **After 4+ failures**: Automatically document the new pattern
+   - Add complete entry to Learned Patterns section
+   - Include all failed attempts with reasons
+   - Document the working solution
+   - Explain why it works
+   - Announce: "✅ New pattern documented: [brief explanation]"
+
+**This mimics human behavior**: Try first, check manual after failure, document hard-won solutions.
+
+**Key points:**
+- Check COOKBOOK after 1 failure (like checking a user guide)
+- Document after ≥4 failures (significant trial-and-error)
+- No manual prompting needed - you detect and document automatically
+- Each pattern becomes institutional knowledge

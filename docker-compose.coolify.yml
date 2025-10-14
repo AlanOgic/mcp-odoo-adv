@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # HTTP Transport Service (Streamable HTTP)
+  odoo-mcp-http:
+    image: alanogic/mcp-odoo-adv:http
+    container_name: odoo-mcp-http
+    restart: unless-stopped
+
+    # Port mapping - Coolify will handle external routing
+    ports:
+      - "8008:8008"
+
+    # Environment variables - Coolify injects these from UI
+    environment:
+      # Required
+      - ODOO_URL=${ODOO_URL}
+      - ODOO_DB=${ODOO_DB}
+      - ODOO_USERNAME=${ODOO_USERNAME}
+      - ODOO_PASSWORD=${ODOO_PASSWORD}
+
+      # Security
+      - MCP_BEARER_TOKEN=${MCP_BEARER_TOKEN}
+
+      # Optional
+      - ODOO_API_VERSION=${ODOO_API_VERSION:-json-2}
+      - ODOO_TIMEOUT=${ODOO_TIMEOUT:-30}
+      - ODOO_VERIFY_SSL=${ODOO_VERIFY_SSL:-true}
+      - MCP_HOST=${MCP_HOST:-0.0.0.0}
+      - MCP_PORT=${MCP_PORT:-8008}
+      - MCP_HTTP_PATH=${MCP_HTTP_PATH:-/mcp}
+
+    # Volume mounts - Coolify creates persistent volumes
+    volumes:
+      # Logs directory (writable)
+      - http-logs:/app/logs
+      # COOKBOOK (writable for self-learning)
+      - cookbook:/app/COOKBOOK.md
+
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    # Health check for Coolify monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health", "-H", "Authorization: Bearer ${MCP_BEARER_TOKEN}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    # Network
+    networks:
+      - coolify
+
+  # SSE Transport Service (Server-Sent Events)
+  odoo-mcp-sse:
+    image: alanogic/mcp-odoo-adv:sse
+    container_name: odoo-mcp-sse
+    restart: unless-stopped
+
+    ports:
+      - "8009:8009"
+
+    environment:
+      # Required
+      - ODOO_URL=${ODOO_URL}
+      - ODOO_DB=${ODOO_DB}
+      - ODOO_USERNAME=${ODOO_USERNAME}
+      - ODOO_PASSWORD=${ODOO_PASSWORD}
+
+      # Security
+      - MCP_BEARER_TOKEN=${MCP_BEARER_TOKEN}
+
+      # Optional
+      - ODOO_API_VERSION=${ODOO_API_VERSION:-json-2}
+      - ODOO_TIMEOUT=${ODOO_TIMEOUT:-30}
+      - ODOO_VERIFY_SSL=${ODOO_VERIFY_SSL:-true}
+      - MCP_HOST=${MCP_HOST:-0.0.0.0}
+      - MCP_PORT=${MCP_PORT:-8009}
+
+    volumes:
+      - sse-logs:/app/logs
+      - cookbook:/app/COOKBOOK.md
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/health", "-H", "Authorization: Bearer ${MCP_BEARER_TOKEN}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    networks:
+      - coolify
+
+# Named volumes - Coolify manages these
+volumes:
+  http-logs:
+    driver: local
+  sse-logs:
+    driver: local
+  cookbook:
+    driver: local
+
+# Network - Coolify creates this
+networks:
+  coolify:
+    external: true

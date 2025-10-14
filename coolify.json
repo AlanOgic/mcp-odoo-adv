@@ -1,0 +1,111 @@
+{
+  "name": "odoo-mcp-server",
+  "description": "Odoo MCP Server - AI Assistant Integration for Odoo ERP",
+  "type": "docker-compose",
+  "docker-compose-location": "docker-compose.yml",
+  "services": [
+    {
+      "name": "odoo-mcp-http",
+      "type": "application",
+      "ports": [
+        {
+          "published": 8008,
+          "target": 8008,
+          "protocol": "tcp"
+        }
+      ],
+      "domains": [
+        {
+          "domain": "mcp.yourdomain.com"
+        }
+      ],
+      "healthcheck": {
+        "test": ["CMD", "curl", "-f", "http://localhost:8008/health"],
+        "interval": "30s",
+        "timeout": "10s",
+        "retries": 3
+      }
+    },
+    {
+      "name": "odoo-mcp-sse",
+      "type": "application",
+      "ports": [
+        {
+          "published": 8009,
+          "target": 8009,
+          "protocol": "tcp"
+        }
+      ],
+      "domains": [
+        {
+          "domain": "sse.mcp.yourdomain.com"
+        }
+      ],
+      "healthcheck": {
+        "test": ["CMD", "curl", "-f", "http://localhost:8009/health"],
+        "interval": "30s",
+        "timeout": "10s",
+        "retries": 3
+      }
+    }
+  ],
+  "environment_variables": [
+    {
+      "key": "ODOO_URL",
+      "required": true,
+      "description": "Odoo instance URL (e.g., https://your-instance.odoo.com)"
+    },
+    {
+      "key": "ODOO_DB",
+      "required": true,
+      "description": "Odoo database name"
+    },
+    {
+      "key": "ODOO_USERNAME",
+      "required": true,
+      "description": "Odoo username"
+    },
+    {
+      "key": "ODOO_PASSWORD",
+      "required": true,
+      "description": "Odoo password or API key",
+      "secret": true
+    },
+    {
+      "key": "MCP_BEARER_TOKEN",
+      "required": true,
+      "description": "Bearer token for MCP authentication (64+ characters)",
+      "secret": true
+    },
+    {
+      "key": "ODOO_API_VERSION",
+      "required": false,
+      "default": "json-2",
+      "description": "API version: json-2 (Odoo 19+) or json-rpc (legacy)"
+    },
+    {
+      "key": "ODOO_TIMEOUT",
+      "required": false,
+      "default": "30",
+      "description": "Connection timeout in seconds"
+    },
+    {
+      "key": "ODOO_VERIFY_SSL",
+      "required": false,
+      "default": "true",
+      "description": "Verify SSL certificates (true/false)"
+    }
+  ],
+  "volumes": [
+    {
+      "source": "./logs",
+      "target": "/app/logs",
+      "type": "bind"
+    },
+    {
+      "source": "./COOKBOOK.md",
+      "target": "/app/COOKBOOK.md",
+      "type": "bind"
+    }
+  ]
+}

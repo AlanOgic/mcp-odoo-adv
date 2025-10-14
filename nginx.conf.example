@@ -1,0 +1,240 @@
+# Nginx Reverse Proxy Configuration with Bearer Token Authentication
+# For Odoo MCP Server (HTTP/SSE Transports)
+#
+# This configuration provides:
+# - SSL/TLS termination
+# - Bearer token authentication
+# - Rate limiting
+# - Request logging
+# - Security headers
+#
+# Usage:
+#   1. Copy to /etc/nginx/sites-available/mcp-odoo
+#   2. Update: server_name, ssl_certificate paths, bearer token
+#   3. Enable: ln -s /etc/nginx/sites-available/mcp-odoo /etc/nginx/sites-enabled/
+#   4. Test: nginx -t
+#   5. Reload: systemctl reload nginx
+
+# Rate limiting zone (10MB = ~160k IP addresses)
+limit_req_zone $binary_remote_addr zone=mcp_limit:10m rate=10r/s;
+
+# Upstream MCP servers
+upstream mcp_http {
+    server 127.0.0.1:8008 max_fails=3 fail_timeout=30s;
+    keepalive 32;
+}
+
+upstream mcp_sse {
+    server 127.0.0.1:8009 max_fails=3 fail_timeout=30s;
+    keepalive 32;
+}
+
+# HTTP → HTTPS redirect
+server {
+    listen 80;
+    listen [::]:80;
+    server_name mcp.yourdomain.com;
+
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+}
+
+# HTTPS server with Bearer authentication
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name mcp.yourdomain.com;
+
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/mcp.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mcp.yourdomain.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Security Headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Logging
+    access_log /var/log/nginx/mcp-access.log;
+    error_log /var/log/nginx/mcp-error.log;
+
+    # Rate Limiting (10 req/s per IP, burst 20)
+    limit_req zone=mcp_limit burst=20 nodelay;
+
+    # Health check endpoint (no auth required)
+    location /health {
+        access_log off;
+        return 200 "OK\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Bearer Token Authentication via Lua (requires lua-nginx-module)
+    # Alternative: Use auth_request with separate auth service
+    location /mcp {
+        # Bearer token validation
+        set $auth_header $http_authorization;
+        set $expected_token "your-secure-token-here-change-me";  # CHANGE THIS!
+
+        # Check Authorization header format
+        if ($auth_header !~* "^Bearer .+") {
+            return 401 '{"error":{"code":-32001,"message":"Unauthorized: Missing Bearer token"}}';
+        }
+
+        # Extract token (remove "Bearer " prefix)
+        set_by_lua_block $provided_token {
+            local auth = ngx.var.auth_header
+            if auth then
+                return auth:sub(8)  -- Remove "Bearer " (7 chars + 1 space)
+            end
+            return ""
+        }
+
+        # Compare tokens (constant-time comparison via Lua)
+        access_by_lua_block {
+            local provided = ngx.var.provided_token
+            local expected = ngx.var.expected_token
+
+            -- Constant-time string comparison
+            if #provided ~= #expected then
+                ngx.status = 401
+                ngx.say('{"error":{"code":-32001,"message":"Unauthorized: Invalid Bearer token"}}')
+                ngx.exit(401)
+            end
+
+            local result = 0
+            for i = 1, #provided do
+                result = result | (string.byte(provided, i) ~ string.byte(expected, i))
+            end
+
+            if result ~= 0 then
+                ngx.status = 401
+                ngx.say('{"error":{"code":-32001,"message":"Unauthorized: Invalid Bearer token"}}')
+                ngx.exit(401)
+            end
+        }
+
+        # Proxy to HTTP backend
+        proxy_pass http://mcp_http;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+
+        # Timeouts
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+    }
+
+    # SSE endpoint (requires special headers)
+    location /sse {
+        # Bearer token validation (same as above)
+        set $auth_header $http_authorization;
+        set $expected_token "your-secure-token-here-change-me";  # CHANGE THIS!
+
+        if ($auth_header !~* "^Bearer .+") {
+            return 401 '{"error":{"code":-32001,"message":"Unauthorized: Missing Bearer token"}}';
+        }
+
+        set_by_lua_block $provided_token {
+            local auth = ngx.var.auth_header
+            if auth then
+                return auth:sub(8)
+            end
+            return ""
+        }
+
+        access_by_lua_block {
+            local provided = ngx.var.provided_token
+            local expected = ngx.var.expected_token
+
+            if #provided ~= #expected then
+                ngx.status = 401
+                ngx.say('{"error":{"code":-32001,"message":"Unauthorized: Invalid Bearer token"}}')
+                ngx.exit(401)
+            end
+
+            local result = 0
+            for i = 1, #provided do
+                result = result | (string.byte(provided, i) ~ string.byte(expected, i))
+            end
+
+            if result ~= 0 then
+                ngx.status = 401
+                ngx.say('{"error":{"code":-32001,"message":"Unauthorized: Invalid Bearer token"}}')
+                ngx.exit(401)
+            end
+        }
+
+        # Proxy to SSE backend
+        proxy_pass http://mcp_sse;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # SSE-specific headers
+        proxy_set_header Connection "";
+        proxy_set_header Cache-Control "no-cache";
+        proxy_buffering off;
+        chunked_transfer_encoding off;
+
+        # Long timeout for SSE connections
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 86400s;  # 24 hours
+        proxy_read_timeout 86400s;  # 24 hours
+    }
+}
+
+# Alternative: Simple auth_request approach (without Lua)
+# Requires separate authentication service
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name mcp-simple.yourdomain.com;
+
+    # SSL Configuration (same as above)
+    ssl_certificate /etc/letsencrypt/live/mcp.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mcp.yourdomain.com/privkey.pem;
+
+    location /mcp {
+        # Delegate authentication to separate service
+        auth_request /auth;
+        auth_request_set $auth_status $upstream_status;
+
+        proxy_pass http://mcp_http;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+    }
+
+    # Internal auth service
+    location = /auth {
+        internal;
+        proxy_pass http://127.0.0.1:9000/validate-token;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header X-Original-URI $request_uri;
+        proxy_set_header Authorization $http_authorization;
+    }
+}
+
+# Note: For production, use environment variables or vault for tokens
+# Example: Generate secure token
+#   openssl rand -hex 32
+#
+# Store in /etc/nginx/conf.d/mcp-secrets.conf:
+#   set $mcp_bearer_token "your-generated-token-here";
+#
+# Then include it:
+#   include /etc/nginx/conf.d/mcp-secrets.conf;

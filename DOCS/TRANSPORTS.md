@@ -83,20 +83,38 @@ MCP_HOST=localhost MCP_PORT=9000 MCP_SSE_PATH=/events python run_server_sse.py
 
 ### Docker
 
+**Development (Less Secure, More Convenient):**
 ```bash
 # Build
 docker build -t alanogic/mcp-odoo-adv:sse -f Dockerfile.sse .
 
-# Run
+# Run with full writable mount
 docker run -p 8009:8009 \
-  -e ODOO_URL=https://your-instance.odoo.com \
-  -e ODOO_DB=your-database \
-  -e ODOO_USERNAME=your-username \
-  -e ODOO_PASSWORD=your-password \
+  -v $(pwd):/app \
+  --env-file .env \
+  alanogic/mcp-odoo-adv:sse
+```
+
+**Production (Secure, Recommended):**
+```bash
+# Build
+docker build -t alanogic/mcp-odoo-adv:sse -f Dockerfile.sse .
+
+# Run with security hardening
+docker run -p 8009:8009 \
+  -v $(pwd):/app:ro \
+  -v $(pwd)/COOKBOOK.md:/app/COOKBOOK.md:rw \
+  -v $(pwd)/logs/sse:/app/logs \
+  --env-file .env \
+  --security-opt=no-new-privileges:true \
+  --cap-drop=ALL \
+  --read-only \
+  --tmpfs /tmp \
+  --tmpfs /app/logs \
   alanogic/mcp-odoo-adv:sse
 
-# Or with .env file
-docker run -p 8009:8009 --env-file .env alanogic/mcp-odoo-adv:sse
+# Or with docker-compose (recommended)
+docker-compose up odoo-mcp-sse
 ```
 
 ### Client Examples
@@ -163,20 +181,38 @@ MCP_HOST=localhost MCP_PORT=9000 MCP_HTTP_PATH=/api python run_server_http.py
 
 ### Docker
 
+**Development (Less Secure, More Convenient):**
 ```bash
 # Build
 docker build -t alanogic/mcp-odoo-adv:http -f Dockerfile.http .
 
-# Run
+# Run with full writable mount
 docker run -p 8008:8008 \
-  -e ODOO_URL=https://your-instance.odoo.com \
-  -e ODOO_DB=your-database \
-  -e ODOO_USERNAME=your-username \
-  -e ODOO_PASSWORD=your-password \
+  -v $(pwd):/app \
+  --env-file .env \
+  alanogic/mcp-odoo-adv:http
+```
+
+**Production (Secure, Recommended):**
+```bash
+# Build
+docker build -t alanogic/mcp-odoo-adv:http -f Dockerfile.http .
+
+# Run with security hardening
+docker run -p 8008:8008 \
+  -v $(pwd):/app:ro \
+  -v $(pwd)/COOKBOOK.md:/app/COOKBOOK.md:rw \
+  -v $(pwd)/logs/http:/app/logs \
+  --env-file .env \
+  --security-opt=no-new-privileges:true \
+  --cap-drop=ALL \
+  --read-only \
+  --tmpfs /tmp \
+  --tmpfs /app/logs \
   alanogic/mcp-odoo-adv:http
 
-# Or with .env file
-docker run -p 8008:8008 --env-file .env alanogic/mcp-odoo-adv:http
+# Or with docker-compose (recommended)
+docker-compose up odoo-mcp-http
 ```
 
 ### Client Examples
@@ -631,13 +667,103 @@ sudo systemctl status mcp-odoo-sse
 
 ## Security Considerations
 
+### Authentication Options
+
+**✅ FastMCP Middleware Support**
+
+FastMCP provides built-in middleware support for authentication. The project includes:
+
+1. **Application-Level Bearer Token Authentication** (`run_server_http_secure.py`)
+   - FastMCP middleware with Bearer token validation
+   - Constant-time token comparison (timing attack prevention)
+   - Environment variable: `MCP_BEARER_TOKEN`
+   - Usage: `python run_server_http_secure.py`
+
+2. **Network-Level Authentication** (Nginx - see `nginx.conf.example`)
+   - SSL/TLS termination
+   - Bearer token validation via Lua or auth_request
+   - Rate limiting and IP whitelisting
+   - Multiple authentication methods (Bearer, Basic Auth, mTLS)
+
+**Security Layers:**
+
+| Layer | Implementation | Security Level | Use Case |
+|-------|---------------|----------------|----------|
+| **Application** | FastMCP middleware | ✅ Good | Development, testing, simple deployments |
+| **Network** | Nginx/API Gateway | ✅ Best | Production, enterprise |
+| **Combined** | Both layers | ✅ Excellent | High-security production |
+
 ### Network Exposure
 
-| Transport | Network Risk | Recommendations |
-|-----------|--------------|-----------------|
-| **STDIO** | None | No network exposure, safe for local use |
-| **SSE** | High | Use reverse proxy with SSL, authentication, rate limiting |
-| **HTTP** | High | Use reverse proxy with SSL, authentication, rate limiting |
+| Transport | Network Risk | Built-in Auth | Recommendations |
+|-----------|--------------|---------------|-----------------|
+| **STDIO** | None | N/A | No network exposure, safe for local use |
+| **SSE** | High | ✅ Middleware | Use `run_server_http_secure.py` + Nginx for production |
+| **HTTP** | High | ✅ Middleware | Use `run_server_http_secure.py` + Nginx for production |
+
+### Docker Volume Security
+
+**⚠️ CRITICAL: Volume mounts can create security vulnerabilities**
+
+| Mount Type | Security Risk | Use Case |
+|------------|---------------|----------|
+| `-v $(pwd):/app` | 🔴 **HIGH** - Container can modify all source code | Development only |
+| `-v $(pwd):/app:ro` + `-v $(pwd)/COOKBOOK.md:/app/COOKBOOK.md:rw` | 🟢 **LOW** - Read-only code, writable docs | Production (recommended) |
+| Named volumes | 🟡 **MEDIUM** - Isolated storage | Data persistence |
+
+**Security Layers Applied:**
+
+1. **Read-only source mount** (`-v $(pwd):/app:ro`)
+   - Prevents code injection attacks
+   - Container cannot modify Python files
+   - Protects against supply chain attacks
+
+2. **Selective writable mounts** (`-v $(pwd)/COOKBOOK.md:/app/COOKBOOK.md:rw`)
+   - Only COOKBOOK.md is writable
+   - Allows self-learning system to function
+   - Minimizes attack surface
+
+3. **Container filesystem read-only** (`--read-only`)
+   - Container's own filesystem is read-only
+   - Prevents malware installation
+   - Forces explicit writable mounts
+
+4. **Capability dropping** (`--cap-drop=ALL`)
+   - Removes all Linux capabilities
+   - Prevents privilege escalation
+   - Limits container actions
+
+5. **No new privileges** (`--security-opt=no-new-privileges:true`)
+   - Prevents setuid/setgid binaries
+   - Blocks privilege elevation
+   - Defense-in-depth measure
+
+6. **Temporary filesystems** (`--tmpfs /tmp`)
+   - Volatile storage for Python cache
+   - Cleared on container restart
+   - No persistent malware storage
+
+**Example Secure Configuration:**
+```bash
+# Full security hardening
+docker run -p 8009:8009 \
+  -v $(pwd):/app:ro \                         # Source code read-only
+  -v $(pwd)/COOKBOOK.md:/app/COOKBOOK.md:rw \ # COOKBOOK writable
+  -v $(pwd)/logs:/app/logs \                  # Logs writable
+  --env-file .env \
+  --security-opt=no-new-privileges:true \     # No privilege escalation
+  --cap-drop=ALL \                            # Drop all capabilities
+  --read-only \                               # Container FS read-only
+  --tmpfs /tmp \                              # Temp dir in memory
+  --tmpfs /app/logs \                         # Logs in memory (optional)
+  alanogic/mcp-odoo-adv:sse
+```
+
+**Using docker-compose.yml (Recommended):**
+```bash
+# All security settings pre-configured
+docker-compose up odoo-mcp-sse
+```
 
 ### Best Practices
 
@@ -646,28 +772,50 @@ sudo systemctl status mcp-odoo-sse
    - Implement SSL/TLS for encrypted transport
    - Add authentication (API keys, OAuth, mTLS)
 
-2. **Implement rate limiting**
+2. **Use read-only mounts in production**
+   ```bash
+   # ❌ INSECURE: Full write access
+   -v $(pwd):/app
+
+   # ✅ SECURE: Read-only + selective write
+   -v $(pwd):/app:ro \
+   -v $(pwd)/COOKBOOK.md:/app/COOKBOOK.md:rw
+   ```
+
+3. **Implement rate limiting**
    ```nginx
    limit_req_zone $binary_remote_addr zone=mcp:10m rate=10r/s;
    limit_req zone=mcp burst=20 nodelay;
    ```
 
-3. **Restrict access by IP**
+4. **Restrict access by IP**
    ```nginx
    allow 10.0.0.0/8;
    allow 192.168.0.0/16;
    deny all;
    ```
 
-4. **Use environment variables for secrets**
+5. **Use environment variables for secrets**
    - Never hardcode credentials
    - Use `.env` files or secret management systems
    - Rotate credentials regularly
+   - Never commit `.env` to version control
 
-5. **Monitor and log**
+6. **Monitor and log**
    - Enable request logging
    - Monitor for unusual patterns
    - Set up alerts for errors
+   - Review security logs regularly
+
+7. **Keep containers updated**
+   - Rebuild images regularly
+   - Update base images for security patches
+   - Monitor CVE databases
+
+8. **Principle of least privilege**
+   - Run containers as non-root user
+   - Drop all unnecessary capabilities
+   - Use read-only filesystems where possible
 
 ## Troubleshooting
 

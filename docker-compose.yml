@@ -10,8 +10,24 @@ services:
     ports:
       - "8009:8009"
     volumes:
+      # Logs directory (writable)
       - ./logs/sse:/app/logs
+      # Source code (read-only) - security: prevents code injection
+      - .:/app:ro
+      # COOKBOOK (writable) - allows learning from experience
+      - ./COOKBOOK.md:/app/COOKBOOK.md:rw
     restart: unless-stopped
+
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true  # Prevent privilege escalation
+    cap_drop:
+      - ALL  # Drop all Linux capabilities
+    read_only: true  # Container filesystem read-only
+    tmpfs:
+      - /tmp  # Writable temp directory for Python cache
+      - /app/logs  # Writable logs directory
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8009/health"]
       interval: 30s
@@ -32,8 +48,24 @@ services:
     ports:
       - "8008:8008"
     volumes:
+      # Logs directory (writable)
       - ./logs/http:/app/logs
+      # Source code (read-only) - security: prevents code injection
+      - .:/app:ro
+      # COOKBOOK (writable) - allows learning from experience
+      - ./COOKBOOK.md:/app/COOKBOOK.md:rw
     restart: unless-stopped
+
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true  # Prevent privilege escalation
+    cap_drop:
+      - ALL  # Drop all Linux capabilities
+    read_only: true  # Container filesystem read-only
+    tmpfs:
+      - /tmp  # Writable temp directory for Python cache
+      - /app/logs  # Writable logs directory
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
       interval: 30s

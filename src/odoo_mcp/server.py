@@ -14,6 +14,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
+from . import cookbook as _cookbook
 from .domain import normalize_domain
 from .limits import SEARCH_METHODS, apply_limits, warn_large_read, warn_large_result
 from .odoo_client import OdooClient, get_odoo_client
@@ -562,6 +563,35 @@ def get_server_info() -> str:
         return json.dumps({"error": str(e)}, indent=2)
 
 
+@mcp.resource(
+    "odoo://cookbook/patterns",
+    description=(
+        "Your personal COOKBOOK — Learned Patterns (recipes from "
+        f"≥{_cookbook.MIN_FAILED_APPROACHES} failed attempts).\n\n"
+        "Workflow:\n"
+        "  1. Try execute_method/batch_execute first.\n"
+        "  2. After the first failure, read this resource for similar recipes.\n"
+        "  3. After ≥4 failed approaches, call add_cookbook_pattern to save what worked."
+    ),
+    annotations={"audience": ["assistant"], "priority": 0.95},
+)
+def get_cookbook_patterns() -> str:
+    """Return the Learned Patterns section of COOKBOOK.md as a JSON envelope."""
+    cookbook_path = _cookbook.find_cookbook(_cookbook.default_cookbook_paths())
+    if cookbook_path is None:
+        return json.dumps(
+            {
+                "found": False,
+                "error": "COOKBOOK.md not found",
+                "searched_paths": [
+                    str(p) for p in _cookbook.default_cookbook_paths()
+                ],
+            },
+            indent=2,
+        )
+    return json.dumps(_cookbook.read_patterns(cookbook_path), indent=2)
+
+
 # ----- Pydantic response models -----
 
 
@@ -848,6 +878,46 @@ def batch_execute(
             failed_operations=failed,
             error=f"Batch execution failed: {str(e)}"
         )
+
+
+@mcp.tool(
+    description=(
+        "Add a learned pattern to COOKBOOK.md. Reserved for problems that "
+        f"required ≥{_cookbook.MIN_FAILED_APPROACHES} failed approaches before "
+        "the working solution was found.\n\n"
+        "Provide: a brief problem statement, the list of failed approaches "
+        "(each with the reason it failed), the working solution code, why it "
+        "works, and the key lesson. After a successful add, announce: "
+        "'✅ New pattern documented: <key lesson>'."
+    )
+)
+def add_cookbook_pattern(
+    problem: str,
+    failed_approaches: List[str],
+    working_solution: str,
+    why_it_works: str,
+    key_lesson: str,
+    related_links: str = "",
+) -> Dict[str, Any]:
+    """Append a new pattern to COOKBOOK.md after validating the threshold."""
+    cookbook_path = _cookbook.find_cookbook(_cookbook.default_cookbook_paths())
+    if cookbook_path is None:
+        return {
+            "success": False,
+            "error": "COOKBOOK.md not found",
+            "searched_paths": [
+                str(p) for p in _cookbook.default_cookbook_paths()
+            ],
+        }
+    return _cookbook.add_pattern(
+        cookbook_path,
+        problem=problem,
+        failed_approaches=failed_approaches,
+        working_solution=working_solution,
+        why_it_works=why_it_works,
+        key_lesson=key_lesson,
+        related_links=related_links,
+    )
 
 
 # ----- MCP Prompts -----

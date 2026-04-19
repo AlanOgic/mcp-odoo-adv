@@ -774,6 +774,105 @@ execute_method(
 
 ---
 
+## Odoo Messaging System: Understanding `message_type`
+
+The `mail.message` model uses `message_type` to distinguish real emails from internal notes, drafts, and system messages. Picking the wrong value silently sends an email (or hides one in the chatter), so it's worth knowing the field.
+
+### Available values
+
+| Value | Label | Use for |
+|---|---|---|
+| `email` | Incoming Email | Real emails received from external parties |
+| `comment` | Comment | Internal notes, drafts, log entries |
+| `email_outgoing` | Outgoing Email | Emails being sent out via mailing |
+| `notification` | System notification | System-generated notifications |
+| `auto_comment` | Automated Targeted Notification | Automated notifications |
+| `user_notification` | User Specific Notification | User-specific system messages |
+| `sms` | SMS | SMS messages |
+| `snailmail` | Snailmail | Physical mail tracking |
+
+### The critical distinction: `comment` vs `email`
+
+**Use `comment` for:** drafts, internal notes, log entries, team discussions, activity logs — anything that should NOT appear as an actual email. Visible only to internal users who follow the record.
+
+**Use `email` for:** actual incoming emails from customers/partners, real sent emails to external parties. Recorded as actual email communications.
+
+### Common mistake
+
+```python
+# WRONG: 'email' for a draft → marks it as a REAL email
+kwargs = {'body': '<p>Draft</p>', 'message_type': 'email'}
+
+# CORRECT: 'comment' for drafts and notes
+kwargs = {'body': '<p>Draft</p>', 'message_type': 'comment'}
+```
+
+### Examples
+
+**Internal note on a CRM lead:**
+```python
+execute_method(
+    model='crm.lead',
+    method='message_post',
+    args_json='[lead_id]',
+    kwargs_json='{"body": "<p>Customer called - follow up tomorrow</p>", "message_type": "comment", "subtype_xmlid": "mail.mt_note"}'
+)
+```
+
+**Draft email saved as a note (not sent):**
+```python
+execute_method(
+    model='sale.order',
+    method='message_post',
+    args_json='[order_id]',
+    kwargs_json='{"body": "<p>Dear Customer, ...</p>", "message_type": "comment", "subtype_xmlid": "mail.mt_note", "subject": "Draft: Quotation Follow-up"}'
+)
+```
+
+**Record an actual sent email:**
+```python
+execute_method(
+    model='res.partner',
+    method='message_post',
+    args_json='[partner_id]',
+    kwargs_json='{"body": "<p>Email content</p>", "message_type": "email", "email_from": "sales@company.com", "partner_ids": [recipient_id], "subject": "Re: Your inquiry"}'
+)
+```
+
+**Filter messages by type:**
+```python
+# Internal notes only
+execute_method(
+    model='mail.message',
+    method='search_read',
+    args_json='[[["res_id", "=", lead_id], ["model", "=", "crm.lead"], ["message_type", "=", "comment"]]]',
+    kwargs_json='{"fields": ["body", "date", "author_id", "subtype_id"], "limit": 20, "order": "date desc"}'
+)
+```
+
+### Working with subtypes
+
+When `message_type='comment'`, set the subtype:
+
+| Subtype | When |
+|---|---|
+| `mail.mt_note` | Truly internal note (not visible in portal) |
+| `mail.mt_comment` | Team discussion (visibility depends on subtype settings) |
+
+### Quick reference
+
+| User request | `message_type` | `subtype_xmlid` |
+|---|---|---|
+| "Add a note" | `comment` | `mail.mt_note` |
+| "Draft an email" | `comment` | `mail.mt_note` |
+| "Log this as a note" | `comment` | `mail.mt_note` |
+| "Record this email we sent" | `email` | (none) |
+| "Add internal comment" | `comment` | `mail.mt_comment` |
+
+When in doubt: use `comment` + `mail.mt_note`. Reserve `email` for real sent/received messages.
+
+---
+
 ## Domain Operators Reference
 
 | Operator | Description | Example |

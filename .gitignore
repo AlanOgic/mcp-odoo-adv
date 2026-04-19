@@ -33,8 +33,9 @@ logs/
 .env.test.local
 .env.production.local
 
-# Claude Code private files
-.claude/
+# Claude Code private files (keep .claude/skills/ tracked so they ship with the repo)
+.claude/*
+!.claude/skills/
 CLAUDE.md
 # Odoo specific
 odoo_config.json

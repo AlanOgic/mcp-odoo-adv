@@ -144,8 +144,8 @@ Add to `claude_desktop_config.json`:
 - Pydantic models for type-safe responses
 
 **2. Odoo Client Layer** (`src/odoo_mcp/odoo_client.py`)
-- `OdooClient`: JSON-2 API client with JWT authentication
-- Automatic token refresh and session management
+- `OdooClient`: JSON-RPC client (Odoo 14-18 default) with optional JSON-2 upgrade for Odoo 19+
+- JSON-2 path uses Bearer token auth with automatic token refresh
 - Singleton pattern via `get_odoo_client()`
 - Specialized methods wrapping `execute_method()`
 
@@ -290,19 +290,34 @@ batch_execute(
 
 ## MCP Resources
 
+Seven discovery resources. Prefer the universal `execute_method` tool for
+anything that changes state or needs filters — resources are read-only
+view helpers.
+
 **1. `odoo://models`**
-- List all available Odoo models
-- Returns: `{"models": [{"name": "res.partner", ...}, ...]}`
+- List all available Odoo models (name + display name)
 
-**2. `odoo://model/{model}/schema`**
-- Get model field definitions and metadata
+**2. `odoo://model/{model}/schema`** — canonical discovery resource
+- Fields with types, constraints, defaults, help text
+- Categorized: relationships, required, readonly, computed
 - Example: `odoo://model/res.partner/schema`
-- Returns: Complete field schema with types, descriptions
 
-**3. `odoo://search/{model}?{query}`**
-- Quick record search (limit=10)
-- Example: `odoo://search/res.partner?name=John`
-- Returns: Matching records with basic fields
+**3. `odoo://model/{model}/access`**
+- Per-operation permissions (read/write/create/unlink) for the current user
+
+**4. `odoo://record/{model}/{id}`**
+- Single-record lookup by id (all fields)
+
+**5. `odoo://workflows`**
+- Hints for business workflows based on installed modules
+  (sale, stock, crm, hr, account, project)
+
+**6. `odoo://methods/{model}`**
+- Static list of common Odoo ORM methods (search, search_read, write…)
+  with `execute_method` usage example
+
+**7. `odoo://server/info`**
+- Odoo version, database name, installed modules
 
 ---
 
@@ -483,15 +498,17 @@ python -m odoo_mcp
 
 ### Odoo API Authentication
 
-**JSON-2 API (Odoo 19+)**:
-- Bearer token authentication
-- Automatic token refresh
+**JSON-RPC (default — Odoo 14-18)**:
+- Session-based authentication via `authenticate` call → UID
+- UID + password/API key sent with each `/jsonrpc` request
+- No XML-RPC: the client speaks JSON-RPC only (faster, smaller payloads)
+- On Odoo 18, put an API key in the password slot for hardened auth
+
+**JSON-2 API (opt-in — Odoo 19+ only)**:
+- Bearer token authentication, automatic refresh
 - Session management via cookies
 - Endpoints: `/api/v2/authenticate`, `/api/v2/call`
-
-**XML-RPC (Legacy fallback)**:
-- Basic authentication per request
-- Endpoints: `/xmlrpc/2/common`, `/xmlrpc/2/object`
+- Enable with `ODOO_API_VERSION=json-2` + `ODOO_API_KEY=<token>`
 
 ### Domain Normalization
 
@@ -567,7 +584,7 @@ mcp-odoo-adv/
 │   ├── __init__.py       # Package init
 │   ├── __main__.py       # Entry point (odoo-mcp command)
 │   ├── server.py         # MCP server (2 tools, 3 resources, 3 prompts)
-│   └── odoo_client.py    # Odoo JSON-2 + XML-RPC client
+│   └── odoo_client.py    # Odoo JSON-RPC (14-18) + JSON-2 (19+) client
 ├── run_server.py         # STDIO runner (enhanced logging)
 ├── run_server_sse.py     # SSE runner (port 8009)
 ├── run_server_http.py    # HTTP runner (port 8008)

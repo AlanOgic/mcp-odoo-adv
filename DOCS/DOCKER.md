@@ -299,8 +299,8 @@ ODOO_CONFIG_DIR=~/mcp-odoo-env           # Custom directory for .env file
 # ODOO_CONFIG_DIR=/etc/odoo-mcp          # Or system-wide config
 
 # Odoo API configuration
-ODOO_API_VERSION=json-2                  # "json-2" (Odoo 19+) or "json-rpc" (default)
-ODOO_API_KEY=your_api_key                # For JSON-2 API (replaces password)
+ODOO_API_VERSION=json-rpc                # "json-rpc" (default, Odoo 14-18) or "json-2" (Odoo 19+ only)
+ODOO_API_KEY=your_api_key                # JSON-2 only; on Odoo 18 put the API key in ODOO_PASSWORD
 ODOO_TIMEOUT=30                          # Connection timeout (default: 30s)
 ODOO_VERIFY_SSL=true                     # SSL verification (default: true)
 

@@ -105,8 +105,8 @@ ODOO_PASSWORD=your-password-or-api-key
 
 **Optional:**
 ```bash
-ODOO_API_VERSION=json-2          # "json-2" (Odoo 19+) or "json-rpc" (legacy)
-ODOO_API_KEY=your_api_key        # For JSON-2 API (replaces password)
+ODOO_API_VERSION=json-rpc        # "json-rpc" (default, Odoo 14-18) or "json-2" (Odoo 19+ only)
+ODOO_API_KEY=your_api_key        # For JSON-2 API only; on Odoo 18 put the API key in ODOO_PASSWORD instead
 ODOO_TIMEOUT=30                  # Connection timeout (default: 30s)
 ODOO_VERIFY_SSL=true             # SSL verification (default: true)
 HTTP_PROXY=http://proxy.com      # HTTP proxy for Odoo connection

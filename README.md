@@ -402,8 +402,8 @@ batch_execute(
 * **Docker**: Pre-built containers for all transports
 
 ### Enterprise Ready
-* **Odoo 14+**: Works with all modern Odoo versions
-* **JSON-2 API**: Support for Odoo 19+ Bearer token authentication
+* **Odoo 18 primary target**: Works out of the box with Odoo 14-18 via JSON-RPC
+* **Odoo 19+ opt-in**: JSON-2 Bearer token API available via `ODOO_API_VERSION=json-2`
 * **Flexible Auth**: Environment variables or config files
 * **Enhanced Logging**: Timestamped logs in `./logs/`
 * **Proxy Support**: HTTP proxy configuration
@@ -414,19 +414,25 @@ batch_execute(
 
 ## 🚀 Advanced Usage
 
-### Odoo 19+ JSON-2 API (Recommended)
+### API keys
 
-For better security with Odoo 19+:
+**Odoo 18 (default):** use the JSON-RPC path with an API key in the password slot.
+
+```bash
+export ODOO_API_VERSION=json-rpc   # default, can be omitted
+export ODOO_PASSWORD=your_api_key_here
+```
+
+Generate the key in Odoo: `Preferences → Account Security → New API Key`.
+
+**Odoo 19+ (opt-in upgrade):** JSON-2 Bearer token API.
 
 ```bash
 export ODOO_API_VERSION=json-2
 export ODOO_API_KEY=your_api_key_here
 ```
 
-Benefits:
-- Bearer token authentication (more secure)
-- Better performance
-- Future-proof (JSON-RPC deprecated in Odoo 20)
+JSON-2 is future-proof — JSON-RPC is scheduled for removal in Odoo 20 (fall 2026).
 
 ### Docker Deployment
 

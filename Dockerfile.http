@@ -1,33 +1,25 @@
-# Dockerfile for Advanced Odoo MCP Server with Streamable HTTP Transport
+# Odoo MCP Server — Streamable HTTP transport
 # Build: docker build -t alanogic/mcp-odoo-adv:http -f Dockerfile.http .
-# Run: docker run -p 8008:8008 --env-file .env alanogic/mcp-odoo-adv:http
+# Run:   docker run -p 8008:8008 --env-file .env alanogic/mcp-odoo-adv:http
+#
+# NOTE: this image runs the UNAUTHENTICATED HTTP runner. The process binds
+# to 127.0.0.1 by default — set MCP_HOST=0.0.0.0 only when behind an auth
+# layer (nginx + token), or use Dockerfile.http-secure for built-in Bearer auth.
 
 ARG PYTHON_VERSION=3.13
 FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app
 
-# Copy only dependency files first (for better caching)
 COPY pyproject.toml README.md ./
+RUN pip install --no-cache-dir "fastmcp[cli]>=2.12.0" requests python-dotenv
 
-# Install Python dependencies (cached layer if pyproject.toml unchanged)
-RUN pip install --no-cache-dir "fastmcp[cli]>=2.12.0" requests
-
-# Copy source code (only invalidates this layer and below when code changes)
 COPY src/ ./src/
-COPY run_server_http.py ./
-
-# Install package in editable mode (fast - no dependencies to install)
 RUN pip install --no-cache-dir -e .
 
-# Create logs directory
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 
-# Expose HTTP port
 EXPOSE 8008
-
-# Set stdout/stderr to unbuffered mode
 ENV PYTHONUNBUFFERED=1
 
-# Run HTTP server
-ENTRYPOINT ["python", "run_server_http.py"]
+ENTRYPOINT ["odoo-mcp-http"]

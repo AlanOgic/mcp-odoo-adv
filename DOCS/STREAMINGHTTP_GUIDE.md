@@ -1,8 +1,8 @@
 # StreamingHTTP Transport - Complete Guide
 
-**Client → Server → Coolify Deployment**
+**Client → Server → Production Deployment**
 
-This guide explains the Streamable HTTP transport for MCP at three levels: client implementation, server configuration, and production deployment with Coolify.
+This guide explains the Streamable HTTP transport for MCP at three levels: client implementation, server configuration, and production deployment.
 
 ---
 
@@ -11,7 +11,7 @@ This guide explains the Streamable HTTP transport for MCP at three levels: clien
 - [Overview](#overview)
 - [Client Level](#client-level)
 - [Server Level](#server-level)
-- [Coolify Deployment](#coolify-deployment)
+- [Production Deployment](#production-deployment)
 - [Complete Examples](#complete-examples)
 
 ---
@@ -543,361 +543,32 @@ curl http://localhost:8008/health
 
 ---
 
-## Coolify Deployment
+## Production Deployment
 
-[Coolify](https://coolify.io) is a self-hosted Heroku/Netlify alternative. Here's how to deploy the MCP server.
+For production, use the HTTP Docker image (`Dockerfile.http`) behind a TLS-terminating reverse proxy.
 
-### 1. Prerequisites
+**Recommended stack:**
+- Container: `alanogic/mcp-odoo-adv:http` on port 8008
+- Reverse proxy: nginx (see [`nginx.conf.example`](../nginx.conf.example)) or Traefik
+- Auth: Bearer token via [`run_server_http_secure.py`](../run_server_http_secure.py) — see [SECURITY.md](../SECURITY.md)
+- Docker deployment details: [DOCKER.md](./DOCKER.md)
 
-- Coolify instance running
-- Docker installed on Coolify server
-- Domain name (optional, for SSL)
-
-### 2. Deployment Method 1: Docker Image
-
-**Step 1: Create New Resource**
-1. Log into Coolify dashboard
-2. Click "New Resource"
-3. Select "Docker Image"
-4. Name: `odoo-mcp-http`
-
-**Step 2: Configure Docker Image**
-```
-Image: alanogic/mcp-odoo-adv:http
-Tag: latest
-```
-
-**Step 3: Port Mapping**
-```
-Container Port: 8008
-Public Port: 8008
-```
-
-**Step 4: Environment Variables**
-
-In Coolify, add these environment variables:
+**Minimal docker run:**
 ```bash
-ODOO_URL=https://your-instance.odoo.com
-ODOO_DB=your-database
-ODOO_USERNAME=your-username
-ODOO_PASSWORD=your-password
-MCP_HOST=0.0.0.0
-MCP_PORT=8008
+docker run -d --name mcp-http \
+  -p 127.0.0.1:8008:8008 \
+  --env-file .env \
+  --restart unless-stopped \
+  alanogic/mcp-odoo-adv:http
 ```
 
-**Step 5: Health Check**
-```
-Path: /health
-Port: 8008
-Interval: 30s
-```
-
-**Step 6: Deploy**
-1. Click "Save"
-2. Click "Deploy"
-3. Wait for deployment to complete
-
-### 3. Deployment Method 2: Git Repository
-
-**Step 1: Prepare Repository**
-
-Create `coolify.json` in your repo:
-```json
-{
-  "dockerComposeFile": "docker-compose.coolify.yml",
-  "services": {
-    "mcp-http": {
-      "dockerfile": "Dockerfile.http",
-      "buildArgs": {
-        "PYTHON_VERSION": "3.13"
-      }
-    }
-  }
-}
-```
-
-Create `docker-compose.coolify.yml`:
-```yaml
-services:
-  mcp-http:
-    build:
-      context: .
-      dockerfile: Dockerfile.http
-    ports:
-      - "${PORT:-8008}:8008"
-    environment:
-      - ODOO_URL=${ODOO_URL}
-      - ODOO_DB=${ODOO_DB}
-      - ODOO_USERNAME=${ODOO_USERNAME}
-      - ODOO_PASSWORD=${ODOO_PASSWORD}
-      - MCP_HOST=0.0.0.0
-      - MCP_PORT=8008
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-```
-
-**Step 2: Create Resource in Coolify**
-1. Click "New Resource"
-2. Select "Git Repository"
-3. Connect your repository
-4. Branch: `main` or `master`
-5. Build Pack: Docker Compose
-
-**Step 3: Environment Variables**
-Add in Coolify dashboard:
-```bash
-ODOO_URL=https://your-instance.odoo.com
-ODOO_DB=your-database
-ODOO_USERNAME=your-username
-ODOO_PASSWORD=your-password
-```
-
-**Step 4: Deploy**
-1. Click "Deploy"
-2. Coolify builds and runs your Docker Compose
-
-### 4. Domain & SSL Configuration
-
-**Step 1: Add Domain**
-1. In resource settings, go to "Domains"
-2. Add domain: `mcp.yourdomain.com`
-3. Coolify automatically provisions Let's Encrypt SSL
-
-**Step 2: Update DNS**
-```
-Type: A
-Name: mcp
-Value: YOUR_COOLIFY_SERVER_IP
-```
-
-**Step 3: Access**
-```
-https://mcp.yourdomain.com/mcp
-```
-
-### 5. Reverse Proxy (Automatic in Coolify)
-
-Coolify automatically configures:
-- Nginx/Traefik reverse proxy
-- SSL/TLS certificates
-- HTTP → HTTPS redirect
-- Health checks
-
-**Manual Nginx Config (if needed):**
-```nginx
-# /etc/nginx/sites-available/mcp.yourdomain.com
-
-upstream mcp_http {
-    server 127.0.0.1:8008;
-}
-
-server {
-    listen 80;
-    server_name mcp.yourdomain.com;
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name mcp.yourdomain.com;
-
-    ssl_certificate /etc/letsencrypt/live/mcp.yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/mcp.yourdomain.com/privkey.pem;
-
-    location /mcp {
-        proxy_pass http://mcp_http;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # Streaming support
-        proxy_buffering off;
-        proxy_request_buffering off;
-        proxy_read_timeout 300s;
-        client_max_body_size 100M;
-    }
-
-    location /health {
-        proxy_pass http://mcp_http;
-    }
-}
-```
-
-### 6. Multiple Environments in Coolify
-
-**Production + Staging Setup:**
-
-```yaml
-# docker-compose.coolify.yml
-
-services:
-  mcp-production:
-    build:
-      context: .
-      dockerfile: Dockerfile.http
-    ports:
-      - "8008:8008"
-    environment:
-      - ODOO_CONFIG_DIR=/config/production
-    volumes:
-      - ./config:/config
-    restart: unless-stopped
-
-  mcp-staging:
-    build:
-      context: .
-      dockerfile: Dockerfile.http
-    ports:
-      - "8009:8008"
-    environment:
-      - ODOO_CONFIG_DIR=/config/staging
-    volumes:
-      - ./config:/config
-    restart: unless-stopped
-```
-
-**Directory structure:**
-```
-config/
-├── production/
-│   └── .env
-└── staging/
-    └── .env
-```
-
-**Access:**
-- Production: `https://mcp.yourdomain.com:8008/mcp`
-- Staging: `https://mcp.yourdomain.com:8009/mcp`
-
-### 7. Monitoring in Coolify
-
-**Built-in Metrics:**
-- CPU usage
-- Memory usage
-- Network I/O
-- Container logs
-
-**Access Logs:**
-```bash
-# In Coolify dashboard
-Resource → Logs → View Real-time Logs
-
-# Or via CLI
-coolify logs mcp-http
-
-# Docker logs
-docker logs -f mcp-http
-```
-
-### 8. Auto-Scaling (Coolify Pro)
-
-```yaml
-# docker-compose.coolify.yml with scaling
-
-services:
-  mcp-http:
-    build:
-      context: .
-      dockerfile: Dockerfile.http
-    deploy:
-      replicas: 3  # Run 3 instances
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
-      restart_policy:
-        condition: on-failure
-        max_attempts: 3
-    ports:
-      - "8008-8010:8008"
-```
-
-### 9. Backup & Restore
-
-**Backup Environment Variables:**
-```bash
-# In Coolify dashboard
-Resource → Environment → Export
-
-# Or via CLI
-coolify env:export mcp-http > mcp-env-backup.txt
-```
-
-**Restore:**
-```bash
-coolify env:import mcp-http < mcp-env-backup.txt
-```
-
-### 10. Security Best Practices for Coolify
-
-**1. Use Secrets:**
-```yaml
-# docker-compose.coolify.yml
-services:
-  mcp-http:
-    secrets:
-      - odoo_password
-    environment:
-      - ODOO_PASSWORD_FILE=/run/secrets/odoo_password
-
-secrets:
-  odoo_password:
-    external: true
-```
-
-**2. Network Isolation:**
-```yaml
-networks:
-  mcp-network:
-    driver: bridge
-    internal: true  # No external access
-
-services:
-  mcp-http:
-    networks:
-      - mcp-network
-```
-
-**3. API Key Protection:**
-
-Add middleware in Nginx/Traefik:
-```nginx
-# In Coolify custom Nginx config
-location /mcp {
-    # API key validation
-    if ($http_x_api_key != "your-secret-key") {
-        return 401;
-    }
-
-    proxy_pass http://mcp_http;
-}
-```
-
-**4. Rate Limiting:**
-```nginx
-# In Coolify custom Nginx config
-limit_req_zone $binary_remote_addr zone=mcp:10m rate=10r/s;
-
-location /mcp {
-    limit_req zone=mcp burst=20 nodelay;
-    proxy_pass http://mcp_http;
-}
-```
+Expose publicly through nginx on 443 with Let's Encrypt; never bind the container directly to 0.0.0.0 without auth.
 
 ---
 
 ## Complete Examples
 
-### Example 1: Python Client → Coolify Server
+### Example 1: Python Client → Remote Server
 
 **Client Code (`client.py`):**
 ```python
@@ -947,7 +618,7 @@ class MCPClient:
 
 # Usage
 async def main():
-    # Connect to Coolify-deployed server
+    # Connect to remote server
     client = MCPClient(
         base_url="https://mcp.yourdomain.com",
         api_key="your-secret-api-key"
@@ -968,7 +639,7 @@ async def main():
 asyncio.run(main())
 ```
 
-### Example 2: Node.js Client → Coolify Server
+### Example 2: Node.js Client → Remote Server
 
 **Client Code (`client.js`):**
 ```javascript
@@ -1065,7 +736,6 @@ main().catch(console.error);
          │
          ↓
 ┌─────────────────┐
-│  Coolify +      │
 │  Nginx/Traefik  │  ← SSL termination, rate limiting
 │  (Reverse Proxy)│
 └────────┬────────┘
@@ -1098,13 +768,13 @@ curl http://localhost:8008/health
 # Check Docker container
 docker ps | grep mcp-odoo
 
-# Check Coolify logs
-coolify logs mcp-http
+# Tail container logs
+docker logs -f mcp-http
 ```
 
 **2. CORS Errors (Browser)**
 
-Add to Nginx config in Coolify:
+Add to Nginx config:
 ```nginx
 add_header Access-Control-Allow-Origin *;
 add_header Access-Control-Allow-Methods 'GET, POST, OPTIONS';
@@ -1143,7 +813,6 @@ curl https://mcp.yourdomain.com/mcp \
 
 - **FastMCP Documentation**: https://gofastmcp.com
 - **MCP Specification**: https://modelcontextprotocol.io
-- **Coolify Documentation**: https://coolify.io/docs
 - **Odoo API Reference**: https://www.odoo.com/documentation/
 
 ---

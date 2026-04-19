@@ -8,12 +8,14 @@ import json
 import sys
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Any, AsyncIterator, Dict, List, Optional, Union, cast
+from datetime import datetime
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
+from .domain import normalize_domain
+from .limits import SEARCH_METHODS, apply_limits, warn_large_read, warn_large_result
 from .odoo_client import OdooClient, get_odoo_client
 
 
@@ -47,162 +49,96 @@ mcp = FastMCP(
 
 
 # ----- MCP Resources -----
+#
+# Resources are discovery endpoints — read-only, side-effect-free views
+# that help LLM clients orient before calling the universal tools. Each
+# handler delegates to OdooClient.execute_method so the client layer only
+# deals with transport+auth; business logic and error envelopes live here.
+
+
+def _error(message: str) -> str:
+    return json.dumps({"error": message}, indent=2)
 
 
 @mcp.resource(
     "odoo://models",
     description="List all available models in the Odoo system",
-    annotations={
-        "audience": ["assistant"],
-        "priority": 0.9
-    }
+    annotations={"audience": ["assistant"], "priority": 0.9},
 )
 def get_models() -> str:
-    """Lists all available models in the Odoo system"""
-    odoo_client = get_odoo_client()
-    models = odoo_client.get_models()
-    return json.dumps(models, indent=2)
-
-
-@mcp.resource(
-    "odoo://model/{model_name}",
-    description="Get detailed information about a specific model including fields",
-    annotations={
-        "audience": ["assistant"],
-        "priority": 0.8
-    }
-)
-def get_model_info(model_name: str) -> str:
-    """
-    Get information about a specific model
-
-    Parameters:
-        model_name: Name of the Odoo model (e.g., 'res.partner')
-    """
+    """List all available Odoo models with their display names."""
     odoo_client = get_odoo_client()
     try:
-        # Get model info
-        model_info = odoo_client.get_model_info(model_name)
-
-        # Get field definitions
-        fields = odoo_client.get_model_fields(model_name)
-        model_info["fields"] = fields
-
-        return json.dumps(model_info, indent=2)
-    except Exception as e:
-        return json.dumps({"error": str(e)}, indent=2)
+        model_ids = odoo_client.execute_method("ir.model", "search", [])
+        if not model_ids:
+            return json.dumps(
+                {"model_names": [], "models_details": {}}, indent=2
+            )
+        records = odoo_client.execute_method(
+            "ir.model", "read", model_ids, ["model", "name"]
+        )
+        model_names = sorted(r["model"] for r in records)
+        return json.dumps(
+            {
+                "model_names": model_names,
+                "models_details": {
+                    r["model"]: {"name": r.get("name", "")} for r in records
+                },
+            },
+            indent=2,
+        )
+    except Exception as exc:
+        return _error(str(exc))
 
 
 @mcp.resource(
     "odoo://record/{model_name}/{record_id}",
-    description="Get detailed information of a specific record by ID",
-    annotations={
-        "audience": ["user", "assistant"],
-        "priority": 0.7
-    }
+    description="Get a specific record by ID (all fields)",
+    annotations={"audience": ["user", "assistant"], "priority": 0.7},
 )
 def get_record(model_name: str, record_id: str) -> str:
-    """
-    Get a specific record by ID
+    """Read a single record by ID.
 
     Parameters:
-        model_name: Name of the Odoo model (e.g., 'res.partner')
-        record_id: ID of the record
+        model_name: Odoo model name (e.g. ``res.partner``)
+        record_id: Integer record id as a string
     """
     odoo_client = get_odoo_client()
     try:
         record_id_int = int(record_id)
-        record = odoo_client.read_records(model_name, [record_id_int])
-        if not record:
-            return json.dumps(
-                {"error": f"Record not found: {model_name} ID {record_id}"}, indent=2
-            )
-        return json.dumps(record[0], indent=2)
-    except Exception as e:
-        return json.dumps({"error": str(e)}, indent=2)
-
-
-@mcp.resource(
-    "odoo://search/{model_name}/{domain}",
-    description="Search for records matching the domain",
-    annotations={
-        "audience": ["user", "assistant"],
-        "priority": 0.6
-    }
-)
-def search_records_resource(model_name: str, domain: str) -> str:
-    """
-    Search for records that match a domain
-
-    Parameters:
-        model_name: Name of the Odoo model (e.g., 'res.partner')
-        domain: Search domain in JSON format (e.g., '[["name", "ilike", "test"]]')
-    """
-    odoo_client = get_odoo_client()
+    except ValueError:
+        return _error(f"record_id must be an integer, got {record_id!r}")
     try:
-        # Parse domain from JSON string
-        domain_list = json.loads(domain)
-
-        # Set a reasonable default limit
-        limit = 10
-
-        # Perform search_read for efficiency
-        results = odoo_client.search_read(model_name, domain_list, limit=limit)
-
-        return json.dumps(results, indent=2)
-    except Exception as e:
-        return json.dumps({"error": str(e)}, indent=2)
-
-
-@mcp.resource(
-    "odoo://fields/{model_name}",
-    description="Get field definitions for a specific model",
-    annotations={
-        "audience": ["assistant"],
-        "priority": 0.75
-    }
-)
-def get_fields(model_name: str) -> str:
-    """
-    Get field definitions for a model
-
-    Parameters:
-        model_name: Name of the Odoo model (e.g., 'res.partner')
-    """
-    odoo_client = get_odoo_client()
-    try:
-        fields = odoo_client.get_model_fields(model_name)
-        return json.dumps(fields, indent=2)
-    except Exception as e:
-        return json.dumps({"error": str(e)}, indent=2)
+        records = odoo_client.execute_method(
+            model_name, "read", [record_id_int]
+        )
+        if not records:
+            return _error(f"Record not found: {model_name} ID {record_id}")
+        return json.dumps(records[0], indent=2)
+    except Exception as exc:
+        return _error(str(exc))
 
 
 @mcp.resource(
     "odoo://model/{model_name}/schema",
-    description="Complete schema for a model including fields, relationships, and constraints",
-    annotations={
-        "audience": ["assistant"],
-        "priority": 0.85
-    }
+    description=(
+        "Complete schema for a model: field definitions, relationships, "
+        "required/readonly/computed fields. This is the canonical discovery "
+        "resource — prefer it over fetching raw fields."
+    ),
+    annotations={"audience": ["assistant"], "priority": 0.9},
 )
 def get_model_schema(model_name: str) -> str:
-    """
-    Get comprehensive schema information for a model
+    """Return a categorized schema for ``model_name``.
 
     Includes:
-    - Field definitions with types, constraints, help text
-    - Relationships (many2one, one2many, many2many)
-    - Required fields
-    - Computed fields
-    - Default values
-
-    Parameters:
-        model_name: Name of the Odoo model (e.g., 'res.partner')
+        * Raw field definitions (types, constraints, help text, defaults)
+        * Relationships (many2one / one2many / many2many) with target models
+        * Required / readonly / computed field lists
     """
     odoo_client = get_odoo_client()
     try:
-        # Get field definitions
-        fields = odoo_client.get_model_fields(model_name)
+        fields = odoo_client.execute_method(model_name, "fields_get")
 
         # Organize fields by category
         schema = {
@@ -304,15 +240,17 @@ def get_workflows() -> str:
     """
     odoo_client = get_odoo_client()
     try:
-        # Get installed modules
-        modules = odoo_client.search_read(
-            'ir.module.module',
-            [('state', '=', 'installed')],
-            fields=['name', 'shortdesc', 'application'],
-            limit=None
+        # Get installed modules — fields list keeps the payload small even on
+        # instances with hundreds of modules
+        modules = odoo_client.execute_method(
+            "ir.module.module",
+            "search_read",
+            [("state", "=", "installed")],
+            fields=["name", "shortdesc", "application"],
+            limit=1000,
         )
 
-        module_names = {m['name']: m.get('shortdesc', '') for m in modules}
+        module_names = {m["name"]: m.get("shortdesc", "") for m in modules}
 
         # Define known workflows for common modules
         workflows = {}
@@ -574,34 +512,30 @@ def get_server_info() -> str:
     """
     odoo_client = get_odoo_client()
     try:
-        # Get server version info - search for base module
-        base_ids = odoo_client._execute(
-            'ir.module.module',
-            'search',
-            [['state', '=', 'installed'], ['name', '=', 'base']]
-        )
-        # Read only specific fields to avoid None values
-        version_info = odoo_client._execute(
-            'ir.module.module',
-            'read',
-            base_ids[:1],
-            ['latest_version', 'installed_version']
-        ) if base_ids else []
-
-        # Get all installed modules
-        module_ids = odoo_client._execute(
-            'ir.module.module',
-            'search',
-            [['state', '=', 'installed']]
+        base_info = odoo_client.execute_method(
+            "ir.module.module",
+            "search_read",
+            [("state", "=", "installed"), ("name", "=", "base")],
+            fields=["latest_version", "installed_version"],
+            limit=1,
         )
 
-        # Read all installed modules with specific fields to avoid None values
-        installed_modules = odoo_client._execute(
-            'ir.module.module',
-            'read',
-            module_ids,
-            ['name', 'shortdesc', 'author', 'installed_version', 'application', 'license']
-        ) if module_ids else []
+        installed_modules = odoo_client.execute_method(
+            "ir.module.module",
+            "search_read",
+            [("state", "=", "installed")],
+            fields=[
+                "name",
+                "shortdesc",
+                "author",
+                "installed_version",
+                "application",
+                "license",
+            ],
+            limit=1000,
+        )
+        module_ids = [m.get("id") for m in installed_modules]
+        version_info = base_info  # shape-compatible with old code
 
         # Get database name from config
         db_name = odoo_client.db if hasattr(odoo_client, 'db') else "unknown"
@@ -628,36 +562,7 @@ def get_server_info() -> str:
         return json.dumps({"error": str(e)}, indent=2)
 
 
-# ----- Pydantic models for type safety -----
-
-
-class DomainCondition(BaseModel):
-    """A single condition in a search domain"""
-
-    field: str = Field(description="Field name to search")
-    operator: str = Field(
-        description="Operator (e.g., '=', '!=', '>', '<', 'in', 'not in', 'like', 'ilike')"
-    )
-    value: Any = Field(description="Value to compare against")
-
-    def to_tuple(self) -> List:
-        """Convert to Odoo domain condition tuple"""
-        return [self.field, self.operator, self.value]
-
-
-class SearchDomain(BaseModel):
-    """Search domain for Odoo models"""
-
-    conditions: List[DomainCondition] = Field(
-        default_factory=list,
-        description="List of conditions for searching. All conditions are combined with AND operator.",
-    )
-
-    def to_domain_list(self) -> List[List]:
-        """Convert to Odoo domain list format"""
-        return [condition.to_tuple() for condition in self.conditions]
-
-
+# ----- Pydantic response models -----
 
 
 class ExecuteMethodResponse(BaseModel):
@@ -770,10 +675,11 @@ def execute_method(
         - error: Error message (if failure)
 
     Pro Tips:
-    - Use validate_before_execute first to catch errors before execution
     - Check odoo://model/{model}/schema for required fields
     - Check odoo://methods/{model} for available methods
     - For workflows, see odoo://workflows for step-by-step guides
+    - Odoo's own validation errors are descriptive — let the call fail and
+      read the error rather than pre-validating client-side
     """
     odoo = ctx.request_context.lifespan_context.odoo
     try:
@@ -797,140 +703,25 @@ def execute_method(
             except json.JSONDecodeError as e:
                 return {"success": False, "error": f"Invalid JSON in kwargs_json: {str(e)}"}
 
-        # Apply smart limits to prevent massive data returns
-        DEFAULT_LIMIT = 100  # Reasonable default to prevent huge responses
-        MAX_LIMIT = 1000     # Hard maximum to cap queries
+        # Normalize the search domain (args[0]) for search-family methods
+        if method in SEARCH_METHODS and args:
+            args = list(args)
+            args[0] = normalize_domain(args[0])
+            print(f"Normalized domain for {method}: {args[0]}", file=sys.stderr)
 
-        # Special handling for search methods like search, search_count, search_read
-        search_methods = ["search", "search_count", "search_read"]
-        if method in search_methods and args:
-            # Search methods usually have domain as the first parameter
-            # args: [[domain], limit, offset, ...] or [domain, limit, offset, ...]
-            normalized_args = list(
-                args
-            )  # Create a copy to avoid affecting the original args
+        # Smart-limit policy
+        kwargs, limit_warnings = apply_limits(method, kwargs)
+        for warning in limit_warnings:
+            print(f"⚠️  {warning}", file=sys.stderr)
 
-            if len(normalized_args) > 0:
-                # Process domain in args[0]
-                domain = normalized_args[0]
-                domain_list = []
-
-                # Check if domain is wrapped unnecessarily ([domain] instead of domain)
-                if (
-                    isinstance(domain, list)
-                    and len(domain) == 1
-                    and isinstance(domain[0], list)
-                ):
-                    # Case [[domain]] - unwrap to [domain]
-                    domain = domain[0]
-
-                # Normalize domain similar to search_records function
-                if domain is None:
-                    domain_list = []
-                elif isinstance(domain, dict):
-                    if "conditions" in domain:
-                        # Object format
-                        conditions = domain.get("conditions", [])
-                        domain_list = []
-                        for cond in conditions:
-                            if isinstance(cond, dict) and all(
-                                k in cond for k in ["field", "operator", "value"]
-                            ):
-                                domain_list.append(
-                                    [cond["field"], cond["operator"], cond["value"]]
-                                )
-                elif isinstance(domain, list):
-                    # List format
-                    if not domain:
-                        domain_list = []
-                    elif all(isinstance(item, list) for item in domain) or any(
-                        item in ["&", "|", "!"] for item in domain
-                    ):
-                        domain_list = domain
-                    elif len(domain) >= 3 and isinstance(domain[0], str):
-                        # Case [field, operator, value] (not [[field, operator, value]])
-                        domain_list = [domain]
-                elif isinstance(domain, str):
-                    # String format (JSON)
-                    try:
-                        parsed_domain = json.loads(domain)
-                        if (
-                            isinstance(parsed_domain, dict)
-                            and "conditions" in parsed_domain
-                        ):
-                            conditions = parsed_domain.get("conditions", [])
-                            domain_list = []
-                            for cond in conditions:
-                                if isinstance(cond, dict) and all(
-                                    k in cond for k in ["field", "operator", "value"]
-                                ):
-                                    domain_list.append(
-                                        [cond["field"], cond["operator"], cond["value"]]
-                                    )
-                        elif isinstance(parsed_domain, list):
-                            domain_list = parsed_domain
-                    except json.JSONDecodeError:
-                        try:
-                            import ast
-
-                            parsed_domain = ast.literal_eval(domain)
-                            if isinstance(parsed_domain, list):
-                                domain_list = parsed_domain
-                        except:
-                            domain_list = []
-
-                # Xác thực domain_list
-                if domain_list:
-                    valid_conditions = []
-                    for cond in domain_list:
-                        if isinstance(cond, str) and cond in ["&", "|", "!"]:
-                            valid_conditions.append(cond)
-                            continue
-
-                        if (
-                            isinstance(cond, list)
-                            and len(cond) == 3
-                            and isinstance(cond[0], str)
-                            and isinstance(cond[1], str)
-                        ):
-                            valid_conditions.append(cond)
-
-                    domain_list = valid_conditions
-
-                # Cập nhật args với domain đã chuẩn hóa
-                normalized_args[0] = domain_list
-                args = normalized_args
-
-                # Log for debugging
-                print(f"Executing {method} with normalized domain: {domain_list}", file=sys.stderr)
-
-        # Apply smart limits for search methods (can be overridden in kwargs)
-        if method in search_methods:
-            # Check if user provided a limit
-            if 'limit' not in kwargs:
-                # No limit provided - apply safe default
-                kwargs['limit'] = DEFAULT_LIMIT
-                print(f"⚠️  No limit specified for {method}, applying default limit={DEFAULT_LIMIT}", file=sys.stderr)
-            elif kwargs.get('limit', 0) > MAX_LIMIT:
-                # User requested too much - cap it
-                original_limit = kwargs['limit']
-                kwargs['limit'] = MAX_LIMIT
-                print(f"⚠️  Requested limit={original_limit} exceeds maximum, capping to limit={MAX_LIMIT}", file=sys.stderr)
-            elif kwargs.get('limit', 0) == 0 or kwargs.get('limit') is False:
-                # User explicitly wants unlimited (limit=0 or limit=False) - allow but warn
-                print(f"⚠️  WARNING: Unlimited query requested! This may return massive datasets.", file=sys.stderr)
-
-        # Apply limits for read method too
-        if method == 'read' and args:
-            # read(ids, fields) - check if ids list is huge
-            if isinstance(args[0], list) and len(args[0]) > MAX_LIMIT:
-                print(f"⚠️  WARNING: Reading {len(args[0])} records at once! Consider batching.", file=sys.stderr)
+        if method == "read":
+            for warning in warn_large_read(args):
+                print(f"⚠️  {warning}", file=sys.stderr)
 
         result = odoo.execute_method(model, method, *args, **kwargs)
 
-        # Warn if result is very large
-        if isinstance(result, list) and len(result) >= MAX_LIMIT:
-            print(f"⚠️  Large result set returned: {len(result)} records. Consider adding filters.", file=sys.stderr)
+        for warning in warn_large_result(result):
+            print(f"⚠️  {warning}", file=sys.stderr)
 
         return {"success": True, "result": result}
     except Exception as e:

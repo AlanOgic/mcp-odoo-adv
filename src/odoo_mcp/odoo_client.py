@@ -7,6 +7,7 @@ import os
 import sys
 import re
 import urllib.parse
+from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -34,16 +35,17 @@ class OdooClient:
             url: Odoo server URL (with or without protocol)
             db: Database name
             username: Login username
-            password: Login password (for JSON-RPC, deprecated in Odoo 20)
-            api_key: API key for JSON-2 API (Odoo 19+, Bearer token)
-            api_version: "json-rpc" (default, current) or "json-2" (Odoo 19+)
+            password: Login password or API key (JSON-RPC path, Odoo 14-18)
+            api_key: Bearer token for JSON-2 API (Odoo 19+ only)
+            api_version: "json-rpc" (default, Odoo 14-18) or "json-2" (Odoo 19+)
             timeout: Connection timeout in seconds
             verify_ssl: Whether to verify SSL certificates
 
         Note:
-            - JSON-RPC API is deprecated and will be removed in Odoo 20 (fall 2026)
-            - JSON-2 API requires api_key instead of password
-            - Use api_key authentication for better security
+            - Odoo 18 is the primary target: use JSON-RPC with an API key in
+              the password field for better security than a raw password.
+            - JSON-2 is an opt-in upgrade available only on Odoo 19+.
+            - JSON-RPC will be removed in Odoo 20 (fall 2026).
         """
         # Ensure URL has a protocol
         if not re.match(r"^https?://", url):
@@ -233,177 +235,6 @@ class OdooClient:
         """
         return self._execute(model, method, *args, **kwargs)
 
-    def get_models(self):
-        """
-        Get a list of all available models in the system
-
-        Returns:
-            List of model names
-
-        Examples:
-            >>> client = OdooClient(url, db, username, password)
-            >>> models = client.get_models()
-            >>> print(len(models))
-            125
-            >>> print(models[:5])
-            ['res.partner', 'res.users', 'res.company', 'res.groups', 'ir.model']
-        """
-        try:
-            # First search for model IDs
-            model_ids = self._execute("ir.model", "search", [])
-
-            if not model_ids:
-                return {
-                    "model_names": [],
-                    "models_details": {},
-                    "error": "No models found",
-                }
-
-            # Then read the model data with only the most basic fields
-            # that are guaranteed to exist in all Odoo versions
-            result = self._execute("ir.model", "read", model_ids, ["model", "name"])
-
-            # Extract and sort model names alphabetically
-            models = sorted([rec["model"] for rec in result])
-
-            # For more detailed information, include the full records
-            models_info = {
-                "model_names": models,
-                "models_details": {
-                    rec["model"]: {"name": rec.get("name", "")} for rec in result
-                },
-            }
-
-            return models_info
-        except Exception as e:
-            print(f"Error retrieving models: {str(e)}", file=sys.stderr)
-            return {"model_names": [], "models_details": {}, "error": str(e)}
-
-    def get_model_info(self, model_name):
-        """
-        Get information about a specific model
-
-        Args:
-            model_name: Name of the model (e.g., 'res.partner')
-
-        Returns:
-            Dictionary with model information
-
-        Examples:
-            >>> client = OdooClient(url, db, username, password)
-            >>> info = client.get_model_info('res.partner')
-            >>> print(info['name'])
-            'Contact'
-        """
-        try:
-            result = self._execute(
-                "ir.model",
-                "search_read",
-                [("model", "=", model_name)],
-                {"fields": ["name", "model"]},
-            )
-
-            if not result:
-                return {"error": f"Model {model_name} not found"}
-
-            return result[0]
-        except Exception as e:
-            print(f"Error retrieving model info: {str(e)}", file=sys.stderr)
-            return {"error": str(e)}
-
-    def get_model_fields(self, model_name):
-        """
-        Get field definitions for a specific model
-
-        Args:
-            model_name: Name of the model (e.g., 'res.partner')
-
-        Returns:
-            Dictionary mapping field names to their definitions
-
-        Examples:
-            >>> client = OdooClient(url, db, username, password)
-            >>> fields = client.get_model_fields('res.partner')
-            >>> print(fields['name']['type'])
-            'char'
-        """
-        try:
-            fields = self._execute(model_name, "fields_get")
-            return fields
-        except Exception as e:
-            print(f"Error retrieving fields: {str(e)}", file=sys.stderr)
-            return {"error": str(e)}
-
-    def search_read(
-        self, model_name, domain, fields=None, offset=None, limit=None, order=None
-    ):
-        """
-        Search for records and read their data in a single call
-
-        Args:
-            model_name: Name of the model (e.g., 'res.partner')
-            domain: Search domain (e.g., [('is_company', '=', True)])
-            fields: List of field names to return (None for all)
-            offset: Number of records to skip
-            limit: Maximum number of records to return
-            order: Sorting criteria (e.g., 'name ASC, id DESC')
-
-        Returns:
-            List of dictionaries with the matching records
-
-        Examples:
-            >>> client = OdooClient(url, db, username, password)
-            >>> records = client.search_read('res.partner', [('is_company', '=', True)], limit=5)
-            >>> print(len(records))
-            5
-        """
-        try:
-            kwargs = {}
-            if offset:
-                kwargs["offset"] = offset
-            if fields is not None:
-                kwargs["fields"] = fields
-            if limit is not None:
-                kwargs["limit"] = limit
-            if order is not None:
-                kwargs["order"] = order
-
-            result = self._execute(model_name, "search_read", domain, **kwargs)
-            return result
-        except Exception as e:
-            print(f"Error in search_read: {str(e)}", file=sys.stderr)
-            return []
-
-    def read_records(self, model_name, ids, fields=None):
-        """
-        Read data of records by IDs
-
-        Args:
-            model_name: Name of the model (e.g., 'res.partner')
-            ids: List of record IDs to read
-            fields: List of field names to return (None for all)
-
-        Returns:
-            List of dictionaries with the requested records
-
-        Examples:
-            >>> client = OdooClient(url, db, username, password)
-            >>> records = client.read_records('res.partner', [1])
-            >>> print(records[0]['name'])
-            'YourCompany'
-        """
-        try:
-            kwargs = {}
-            if fields is not None:
-                kwargs["fields"] = fields
-
-            result = self._execute(model_name, "read", ids, kwargs)
-            return result
-        except Exception as e:
-            print(f"Error reading records: {str(e)}", file=sys.stderr)
-            return []
-
-
 def load_config():
     """
     Load Odoo configuration from .env file, environment variables, or config file
@@ -476,16 +307,22 @@ def load_config():
     )
 
 
+@lru_cache(maxsize=1)
 def get_odoo_client():
     """
-    Get a configured Odoo client instance
+    Get the singleton Odoo client instance.
 
-    Supports both JSON-RPC (legacy) and JSON-2 API (Odoo 19+)
+    Cached for the process lifetime — the first call builds the client
+    (including the JSON-RPC authenticate round-trip), subsequent calls
+    return the same instance. Call ``get_odoo_client.cache_clear()`` to
+    force a rebuild (tests only).
+
+    Supports both JSON-RPC (Odoo 14-18) and JSON-2 API (Odoo 19+).
 
     Environment variables:
         ODOO_API_VERSION: "json-rpc" (default) or "json-2"
-        ODOO_API_KEY: API key for JSON-2 (replaces password)
-        ODOO_PASSWORD: Password for JSON-RPC (deprecated in Odoo 20)
+        ODOO_API_KEY: API key for JSON-2 (Bearer token)
+        ODOO_PASSWORD: Password or API key for JSON-RPC
 
     Returns:
         OdooClient: A configured Odoo client instance

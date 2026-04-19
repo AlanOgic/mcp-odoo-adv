@@ -18,7 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
 ]
-keywords = ["odoo", "odoo 17", "odoo 18", "odoo 19", "mcp", "odoo-mcp", "mcp server", "server", "docker", "stdio", "sse", "streaming http"]
+keywords = ["odoo", "odoo 18", "odoo 19", "mcp", "odoo-mcp", "mcp server", "server", "docker", "stdio", "sse", "streaming http"]
 authors = [
     {name = "Alan Ogic", email = "info@alanogic.com"}
 ]
@@ -41,14 +41,28 @@ dev = [
     "ruff",
     "build",
     "twine",
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v --strict-markers"
+markers = [
+    "integration: tests requiring a live Odoo instance",
 ]
 
 [project.scripts]
 odoo-mcp = "odoo_mcp.__main__:main"
+odoo-mcp-http = "odoo_mcp.runners.http:main"
+odoo-mcp-sse = "odoo_mcp.runners.sse:main"
+odoo-mcp-http-secure = "odoo_mcp.runners.http_secure:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["odoo_mcp"]
+packages = ["odoo_mcp", "odoo_mcp.runners"]
 
 [tool.black]
 line-length = 88

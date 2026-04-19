@@ -237,34 +237,55 @@ Just begin a new conversation by "use your odoo mcp tools to ..."
 
 The server supports three transport modes for different use cases:
 
+After installing the package (`pip install -e .`), four console scripts are available:
+
 ### STDIO (Claude Desktop)
 
 **Best for**: Claude Desktop integration
-**Command**: `python run_server.py` or `./run.py` -> select option 1
+**Command**: `odoo-mcp`
 **Connection**: Process pipes (stdin/stdout)
 **Network**: Not required
 
 ### SSE (Web browsers)
 
 **Best for**: Web-based AI clients
-**Command**: `python run_server_sse.py` or `./run.py` -> select option 2
-**URL**: `http://0.0.0.0:8009/sse`
+**Command**: `odoo-mcp-sse`
+**URL**: `http://127.0.0.1:8009/sse` (set `MCP_HOST=0.0.0.0` only behind an auth layer)
 **Protocol**: Server-Sent Events
 
 ### HTTP (API integrations)
 
 **Best for**: Custom applications
-**Command**: `python run_server_http.py`or `./run.py` -> select option 3
-**URL**: `http://0.0.0.0:8008/mcp`
+**Command**: `odoo-mcp-http`
+**URL**: `http://127.0.0.1:8008/mcp` (set `MCP_HOST=0.0.0.0` only behind an auth layer)
 **Protocol**: Streamable HTTP
+
+### HTTP + Bearer auth (production)
+
+**Best for**: Publicly exposed deployments
+**Command**: `odoo-mcp-http-secure`
+**URL**: `http://0.0.0.0:8008/mcp` (default — auth is enforced)
+**Required env**: `MCP_BEARER_TOKEN` (use `openssl rand -hex 32`)
 
 ---
 
 ## Advanced configuration
 
-### Use API keys (Odoo 19+)
+### Use API keys
 
-For better security with Odoo 19+:
+Odoo 14+ supports API keys that can be used in place of a raw password. This is the recommended setup for Odoo 18.
+
+**Odoo 18 (JSON-RPC — default):**
+
+Generate an API key in Odoo (`Preferences → Account Security → New API Key`), then put it in the password slot:
+
+```bash
+# In your .env file
+ODOO_API_VERSION=json-rpc
+ODOO_PASSWORD=your_api_key_here
+```
+
+**Odoo 19+ (JSON-2 — opt-in upgrade):**
 
 ```bash
 # In your .env file
@@ -272,10 +293,7 @@ ODOO_API_VERSION=json-2
 ODOO_API_KEY=your_api_key_here
 ```
 
-Benefits:
-- Bearer token authentication (more secure)
-- Better performance
-- Future-proof (JSON-RPC deprecated in Odoo 20)
+JSON-2 uses Bearer tokens directly and is future-proof (JSON-RPC is scheduled for removal in Odoo 20, fall 2026). Only available on Odoo 19+.
 
 ### Proxy configuration
 

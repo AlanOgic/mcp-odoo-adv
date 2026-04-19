@@ -69,3 +69,4 @@ uv.lock
 src/odoo_mcp/odoo_client.py.xmlrpc.backup
 src/odoo_mcp/server.py.backup
 src/odoo_mcp/server.py.xmlrpc.backup
+.superpowers/

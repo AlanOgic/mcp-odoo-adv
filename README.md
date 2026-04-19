@@ -1,19 +1,22 @@
 # Odoo MCP Server Advanced
 
-**Two tools. Infinite possibilities. Full Odoo API access.**
+**Two universal tools. A growing cookbook. Full Odoo API access for AI assistants.**
 
-An advanced MCP (Model Context Protocol) server implementation for Odoo ERP systems, enabling AI assistants to interact with Odoo data and functionality using STDIO, SSE, StreamingHttp.
+An advanced MCP (Model Context Protocol) server for Odoo ERP — STDIO, SSE, and Streamable HTTP transports — that gives Claude, Cursor, ChatGPT-via-MCP and other AI hosts direct access to your Odoo data and workflows.
+
+> **AI assistants:** read [AGENTS.md](./AGENTS.md) for the tool-first quick reference.
 
 ---
 
 ## 🎯 Philosophy: Simplicity & Power
 
-Connect AI assistants to Odoo with just **two universal tools**:
+Connect AI assistants to Odoo with **two universal tools** plus a self-improving knowledge base:
 
-1. **`execute_method`** - Call any Odoo method on any model
-2. **`batch_execute`** - Execute multiple operations atomically
+1. **`execute_method`** — call any Odoo method on any model
+2. **`batch_execute`** — execute multiple operations atomically (with `@N` result references)
+3. **`add_cookbook_pattern`** — document hard-won recipes after ≥4 failed attempts
 
-No complexity. No limitations. Full Odoo API access.
+Plus 11 discovery resources, 3 prompts, and an `odoo://cookbook/patterns` resource that surfaces past lessons. No specialized tools, no validation layer, no artificial limits — full Odoo API.
 
 ### To rule them all. What You Can Do
 
@@ -98,7 +101,7 @@ cp .env.example $ODOO_CONFIG_DIR/.env
 vim $ODOO_CONFIG_DIR/.env
 
 # Run server (automatically uses custom directory)
-python run_server.py
+odoo-mcp
 ```
 
 This is useful for:
@@ -108,16 +111,23 @@ This is useful for:
 
 ### Run Server
 
+After `pip install -e .`, four console scripts are wired up:
+
 ```bash
-# STDIO (Claude Desktop)
-python run_server.py
+# STDIO (Claude Desktop, Claude Code, Cursor)
+odoo-mcp                      # or: python -m odoo_mcp
 
-# SSE (Web browsers)
-python run_server_sse.py
+# SSE (browsers, port 8009)
+odoo-mcp-sse
 
-# HTTP (API integrations)
-python run_server_http.py
+# Streamable HTTP (API integrations, port 8008)
+odoo-mcp-http
+
+# HTTP with Bearer auth (production behind a reverse proxy)
+odoo-mcp-http-secure
 ```
+
+Each runner streams logs to `./logs/mcp_server_<transport>_<timestamp>.log` plus stderr.
 
 ### Claude Desktop Setup
 
@@ -210,7 +220,7 @@ Or with `.env` file:
 
 ---
 
-## 🔧 The Two Tools
+## 🔧 The Tools
 
 ### 1. execute_method - The Universal Powerhouse
 
@@ -253,43 +263,64 @@ execute_method(
 
 ### 2. batch_execute - Atomic Transactions
 
-Execute multiple operations atomically. All succeed or all rollback.
+Execute multiple operations atomically. All succeed or all rollback. Use `"@N"` (1-indexed) inside `args_json` to reference a previous operation's result.
 
 ```python
 batch_execute(
     operations=[
-        {
-            "model": "res.partner",
-            "method": "create",
-            "args_json": '[{"name": "New Customer"}]'
-        },
-        {
-            "model": "sale.order",
-            "method": "create",
-            "args_json": '[{"partner_id": 8}]'
-        }
+        {"model": "res.partner", "method": "create",
+         "args_json": '[{"name": "Acme"}]'},
+        {"model": "sale.order", "method": "create",
+         "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 5, "product_uom_qty": 1}]]}]'},
+        {"model": "sale.order", "method": "action_confirm",
+         "args_json": '[[@2]]'}
     ],
-    atomic=True  # All succeed or all fail
+    atomic=True
 )
 ```
+
+### 3. add_cookbook_pattern - Self-Improving Knowledge Base
+
+After **≥4 failed approaches** to the same problem, document the working solution so future sessions skip the trial-and-error:
+
+```python
+add_cookbook_pattern(
+    problem="Search products by attribute value",
+    failed_approaches=[
+        "Used = on many2many field",
+        "Tried dotted notation",
+        "Used wrong model",
+        "Passed scalar instead of list to in",
+    ],
+    working_solution='execute_method(model="product.template", method="search_read", args_json=\'[[["product_template_attribute_value_ids", "in", [123]]]]\')',
+    why_it_works="Many2many fields require in with a list, not =",
+    key_lesson="For m2m: always 'in' with a list, never '=' with scalar"
+)
+```
+
+The `≥4` threshold is enforced — shallow trial-and-error stays out of the cookbook.
 
 ---
 
 ## 📚 Documentation
 
-### Essential Resources
+### Discovery resources (read before guessing)
 
-**Before using the tools, check these resources:**
+| Resource | Returns |
+|---|---|
+| `odoo://models` | All models in this instance |
+| `odoo://model/{model}/schema` | Full schema — fields, types, requireds, relationships |
+| `odoo://model/{model}/access` | Your CRUD permissions on this model |
+| `odoo://methods/{model}` | Methods available on this model |
+| `odoo://workflows` | Business workflows from installed modules |
+| `odoo://server/info` | Odoo version + installed modules |
+| `odoo://cookbook/patterns` | Learned Patterns from past sessions (read after first failure) |
 
-- **`odoo://model/{model}/schema`** - Field definitions, relationships, required fields
-- **`odoo://model/{model}/access`** - Your permissions (read/write/create/delete)
-- **`odoo://methods/{model}`** - Available methods for a model
-- **`odoo://workflows`** - Business workflows (Sales, CRM, Inventory, etc.)
-- **`odoo://server/info`** - Odoo version and installed modules
+Plus `odoo://record/{model}/{id}`, `odoo://search/{model}/{domain}`, `odoo://fields/{model}`, `odoo://model/{model}` for one-off reads.
 
 ### The Cookbook
 
-**[📖 COOKBOOK.md](COOKBOOK.md)** - 40+ practical examples:
+**[📖 COOKBOOK.md](COOKBOOK.md)** — 45+ practical examples:
 
 - Searching & filtering
 - Creating records
@@ -305,9 +336,24 @@ batch_execute(
 
 **User-selectable templates in Claude's menu:**
 
-- **`search-customers`** - Find customers with filters
-- **`create-sales-order`** - Create sales orders step-by-step
-- **`odoo-exploration`** - Discover your Odoo instance capabilities
+- **`search-customers`** — Find customers with filters
+- **`create-sales-order`** — Create sales orders step-by-step
+- **`odoo-exploration`** — Discover your Odoo instance capabilities
+
+### Claude Code skills
+
+Eight skills ship in [`.claude/skills/`](./.claude/skills/) and auto-activate on relevant requests when this repo is opened in Claude Code. They wrap the cookbook into focused, trigger-aware guides:
+
+- `odoo-mcp-searching` — domains, operators, name_search
+- `odoo-mcp-efficient-queries` — pagination, fields, `read_group`
+- `odoo-mcp-crud` — create/write/unlink, archive vs delete
+- `odoo-mcp-relationships` — m2o/o2m/m2m command tuples
+- `odoo-mcp-workflows` — `action_confirm`, `action_post`, `button_validate`
+- `odoo-mcp-batch` — atomic transactions with `@N` references
+- `odoo-mcp-real-world` — HR/CRM/inventory cross-model recipes
+- `odoo-mcp-learned-patterns` — cookbook read/write workflow
+
+Other MCP clients (Claude Desktop, Cursor) get the same knowledge portably via `COOKBOOK.md` and the `odoo://cookbook/patterns` resource.
 
 ---
 
@@ -390,10 +436,11 @@ batch_execute(
 ## 🔥 Features
 
 ### AI Integration
-* **Claude Desktop Ready**: Seamless integration with Claude Code
-* **Two Universal Tools**: Access the entire Odoo API with `execute_method` and `batch_execute`
-* **Smart Limits**: Automatic protection against oversized queries (configurable)
-* **MCP 2025 Compliant**: Latest Model Context Protocol specification
+* **Claude Desktop / Claude Code / Cursor Ready**: Works with any MCP host
+* **Universal Tools**: `execute_method` + `batch_execute` reach the entire Odoo API
+* **Self-improving cookbook**: `odoo://cookbook/patterns` resource + `add_cookbook_pattern` tool grow the institutional knowledge automatically
+* **Smart Limits**: Automatic protection against oversized queries (DEFAULT=100, MAX=1000)
+* **MCP 2025-06-18 spec**: Built on FastMCP 2.12+
 
 ### Multiple Connection Options
 * **STDIO**: Direct integration with Claude Desktop

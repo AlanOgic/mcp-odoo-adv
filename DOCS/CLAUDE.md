@@ -1,12 +1,13 @@
-# CLAUDE.md - Odoo MCP Server v1.0.0-beta
+# CLAUDE.md - Odoo MCP Server v1.0.0-beta.2
 
 This file provides guidance to Claude Code (claude.ai/code) when working with the Odoo MCP Server Advanced.
 
-**Philosophy: Radical Simplicity**
-- **Two tools**: `execute_method` and `batch_execute`
+**Philosophy: Radical Simplicity + Self-Improving Knowledge**
+- **Three tools**: `execute_method`, `batch_execute`, `add_cookbook_pattern`
+- **Eleven resources**: 10 Odoo discovery resources + `odoo://cookbook/patterns`
 - **Infinite possibilities**: Full Odoo API access
-- **Smart limits**: Automatic protection against massive data returns
-- **Power user focused**: Documentation over specialized tools
+- **Smart limits**: Automatic protection against massive data returns (DEFAULT=100, MAX=1000)
+- **Self-learning**: cookbook resource + write tool capture hard-won recipes (≥4-failure threshold)
 
 ---
 
@@ -51,29 +52,31 @@ HTTP_PROXY=http://proxy   # HTTP proxy for Odoo connection
 
 ### Running the Server
 
-**STDIO (Claude Desktop):**
+After `pip install -e .`, four console scripts are available (defined in `pyproject.toml [project.scripts]`):
+
+| Script | Module | Default bind | Notes |
+|---|---|---|---|
+| `odoo-mcp` | `odoo_mcp.__main__:main` | stdio | Claude Desktop, Claude Code, Cursor |
+| `odoo-mcp-sse` | `odoo_mcp.runners.sse:main` | `0.0.0.0:8009/sse` | Browsers, legacy MCP clients |
+| `odoo-mcp-http` | `odoo_mcp.runners.http:main` | `127.0.0.1:8008/mcp` | Streamable HTTP (no auth — bind to localhost) |
+| `odoo-mcp-http-secure` | `odoo_mcp.runners.http_secure:main` | `0.0.0.0:8008/mcp` | Bearer-token auth + IP allowlist |
+
 ```bash
-# With uvx
-uvx --from . odoo-mcp
+# STDIO (Claude Desktop / Claude Code / Cursor)
+odoo-mcp                # or: python -m odoo_mcp
+uvx --from . odoo-mcp   # zero-install runner
 
-# With Python module
-python -m odoo_mcp
+# SSE (web browsers, legacy)
+odoo-mcp-sse
 
-# Standalone script (enhanced logging)
-python run_server.py
+# Streamable HTTP (API integrations)
+odoo-mcp-http
+
+# Secure HTTP (production behind reverse proxy)
+MCP_BEARER_TOKEN=$(openssl rand -hex 32) odoo-mcp-http-secure
 ```
 
-**SSE (Web browsers):**
-```bash
-python run_server_sse.py
-# Listens on http://0.0.0.0:8009/sse
-```
-
-**HTTP (API integrations):**
-```bash
-python run_server_http.py
-# Listens on http://0.0.0.0:8008/mcp
-```
+Each runner streams to `./logs/mcp_server_<transport>_<timestamp>.log`.
 
 **Docker:**
 ```bash
@@ -133,21 +136,39 @@ Add to `claude_desktop_config.json`:
 
 ## Architecture Overview
 
-### Two-Layer Design
+### Module layout
 
-**1. MCP Server Layer** (`src/odoo_mcp/server.py`)
+```
+src/odoo_mcp/
+├── __main__.py        # STDIO entry point (odoo-mcp)
+├── server.py          # MCP server: tools, resources, prompts (940 LOC)
+├── odoo_client.py     # OdooClient (JSON-RPC + JSON-2)
+├── domain.py          # search-domain normalization (extracted from server)
+├── limits.py          # smart-limit policy (DEFAULT=100, MAX=1000)
+├── logging_util.py    # TeeLogger + setup_file_logging (shared by runners)
+├── cookbook.py        # Learned Patterns read/write (≥4-failure threshold)
+└── runners/
+    ├── http.py         # Streamable HTTP runner (odoo-mcp-http)
+    ├── sse.py          # SSE runner (odoo-mcp-sse)
+    └── http_secure.py  # Bearer-auth HTTP (odoo-mcp-http-secure)
+
+tests/
+├── test_domain.py     # 31 tests
+├── test_limits.py     # 31 tests
+└── test_cookbook.py   # 16 tests
+```
+
+**MCP Server Layer** (`src/odoo_mcp/server.py`)
 - Built on FastMCP 2.12+ (MCP 2025-06-18 spec)
-- **2 universal tools**: `execute_method`, `batch_execute`
-- **3 resources**: models list, model schemas, record search
-- **3 prompts**: customer search, sales orders, exploration
-- Smart limits: DEFAULT_LIMIT=100, MAX_LIMIT=1000
+- **3 tools**: `execute_method`, `batch_execute`, `add_cookbook_pattern`
+- **11 resources** — 10 Odoo discovery + `odoo://cookbook/patterns`
+- **3 prompts**: `search-customers`, `create-sales-order`, `odoo-exploration`
 - Pydantic models for type-safe responses
 
-**2. Odoo Client Layer** (`src/odoo_mcp/odoo_client.py`)
+**Odoo Client Layer** (`src/odoo_mcp/odoo_client.py`)
 - `OdooClient`: JSON-RPC client (Odoo 14-18 default) with optional JSON-2 upgrade for Odoo 19+
 - JSON-2 path uses Bearer token auth with automatic token refresh
 - Singleton pattern via `get_odoo_client()`
-- Specialized methods wrapping `execute_method()`
 
 ### What Was Removed (v1.0 Simplification)
 
@@ -290,34 +311,39 @@ batch_execute(
 
 ## MCP Resources
 
-Seven discovery resources. Prefer the universal `execute_method` tool for
-anything that changes state or needs filters — resources are read-only
-view helpers.
+Eleven resources. Use them for read-only context — anything that mutates state
+or needs runtime filtering goes through `execute_method`.
 
-**1. `odoo://models`**
-- List all available Odoo models (name + display name)
+### Odoo discovery (10)
 
-**2. `odoo://model/{model}/schema`** — canonical discovery resource
-- Fields with types, constraints, defaults, help text
-- Categorized: relationships, required, readonly, computed
-- Example: `odoo://model/res.partner/schema`
+| URI | Purpose |
+|---|---|
+| `odoo://models` | All Odoo models — name + display name |
+| `odoo://model/{model}` | Model summary + field list |
+| `odoo://model/{model}/schema` | **Canonical schema** — fields, types, requireds, relationships, defaults |
+| `odoo://model/{model}/access` | Per-op permissions (read/write/create/unlink) for current user |
+| `odoo://fields/{model}` | Field definitions only (no relationships analysis) |
+| `odoo://methods/{model}` | Common ORM methods + usage example |
+| `odoo://workflows` | Workflow hints based on installed modules (sale, stock, crm, hr, account, project) |
+| `odoo://server/info` | Odoo version, database, installed modules |
+| `odoo://record/{model}/{id}` | Single-record lookup by id (all fields) |
+| `odoo://search/{model}/{domain}` | Inline search (URL-encoded JSON domain) |
 
-**3. `odoo://model/{model}/access`**
-- Per-operation permissions (read/write/create/unlink) for the current user
+### Self-improving knowledge (1)
 
-**4. `odoo://record/{model}/{id}`**
-- Single-record lookup by id (all fields)
+| URI | Purpose |
+|---|---|
+| `odoo://cookbook/patterns` | **Learned Patterns** section of `COOKBOOK.md` — recipes from ≥4-failure problems. High priority (0.95) so clients consult it early when troubleshooting. |
 
-**5. `odoo://workflows`**
-- Hints for business workflows based on installed modules
-  (sale, stock, crm, hr, account, project)
+The cookbook resource pairs with the `add_cookbook_pattern` tool for write access.
+Together they implement the self-learning loop:
 
-**6. `odoo://methods/{model}`**
-- Static list of common Odoo ORM methods (search, search_read, write…)
-  with `execute_method` usage example
-
-**7. `odoo://server/info`**
-- Odoo version, database name, installed modules
+```
+Try execute_method → fail → read odoo://cookbook/patterns
+  → recipe exists → apply
+  → no recipe → keep trying
+                  → ≥4 failures → add_cookbook_pattern (write what worked)
+```
 
 ---
 
@@ -334,6 +360,29 @@ view helpers.
 **3. odoo-exploration**
 - Discovering models, fields, and relationships
 - Uses resources and execute_method
+
+---
+
+## Claude Code Skills
+
+Eight skills ship in `.claude/skills/` and auto-activate on relevant requests
+when this repo is opened in Claude Code. They are **client-side** (Claude Code
+only) — other MCP hosts get the same knowledge via the cookbook resource and
+`COOKBOOK.md`.
+
+| Skill | Trigger |
+|---|---|
+| `odoo-mcp-searching` | Building search domains / filters |
+| `odoo-mcp-efficient-queries` | Pagination, field scoping, `read_group` |
+| `odoo-mcp-crud` | Create/write/unlink, archive vs delete |
+| `odoo-mcp-relationships` | many2one / one2many / many2many command tuples |
+| `odoo-mcp-workflows` | `action_confirm`, `action_post`, `button_validate` |
+| `odoo-mcp-batch` | Atomic transactions with `@N` references |
+| `odoo-mcp-real-world` | HR / CRM / inventory cross-model recipes |
+| `odoo-mcp-learned-patterns` | When to read/write the cookbook resource |
+
+See [`.claude/skills/README.md`](../.claude/skills/README.md) for the contributor
+guide.
 
 ---
 

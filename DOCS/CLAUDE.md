@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 **Philosophy: Radical Simplicity + Self-Improving Knowledge**
 - **Three tools**: `execute_method`, `batch_execute`, `add_cookbook_pattern`
-- **Eleven resources**: 10 Odoo discovery resources + `odoo://cookbook/patterns`
+- **Eight resources**: 7 Odoo discovery resources + `odoo://cookbook/patterns`
 - **Infinite possibilities**: Full Odoo API access
 - **Smart limits**: Automatic protection against massive data returns (DEFAULT=100, MAX=1000)
 - **Self-learning**: cookbook resource + write tool capture hard-won recipes (≥4-failure threshold)
@@ -153,16 +153,21 @@ src/odoo_mcp/
     └── http_secure.py  # Bearer-auth HTTP (odoo-mcp-http-secure)
 
 tests/
-├── test_domain.py     # 31 tests
-├── test_limits.py     # 31 tests
-└── test_cookbook.py   # 16 tests
+├── test_domain.py       # 31 tests — pure domain normalization
+├── test_limits.py       # 31 tests — pure smart-limit policy
+├── test_cookbook.py     # 16 tests — pure COOKBOOK read/write
+└── test_mcp_surface.py  # 17 tests — in-memory MCP round-trips
 ```
 
 **MCP Server Layer** (`src/odoo_mcp/server.py`)
-- Built on FastMCP 2.12+ (MCP 2025-06-18 spec)
+- Built on FastMCP 3.x (`fastmcp>=3.2,<4`). The MCP protocol revision is
+  negotiated by FastMCP and the `mcp` SDK — this server does not pin one.
 - **3 tools**: `execute_method`, `batch_execute`, `add_cookbook_pattern`
-- **11 resources** — 10 Odoo discovery + `odoo://cookbook/patterns`
+- **8 resources** — clients see 4 concrete (`odoo://models`, `odoo://workflows`,
+  `odoo://server/info`, `odoo://cookbook/patterns`) plus 4 templates, which are
+  returned by `resources/templates/list`, *not* `resources/list`
 - **3 prompts**: `search-customers`, `create-sales-order`, `odoo-exploration`
+  — each returns a plain string; FastMCP 3 rejects the 2.x list-of-dicts shape
 - Pydantic models for type-safe responses
 
 **Odoo Client Layer** (`src/odoo_mcp/odoo_client.py`)
@@ -311,25 +316,31 @@ batch_execute(
 
 ## MCP Resources
 
-Eleven resources. Use them for read-only context — anything that mutates state
+Eight resources. Use them for read-only context — anything that mutates state
 or needs runtime filtering goes through `execute_method`.
 
-### Odoo discovery (10)
+Note how clients see them: the four with `{param}` placeholders are **resource
+templates**, returned by `resources/templates/list`. A client that only reads
+`resources/list` sees just the four concrete URIs.
 
-| URI | Purpose |
-|---|---|
-| `odoo://models` | All Odoo models — name + display name |
-| `odoo://model/{model}` | Model summary + field list |
-| `odoo://model/{model}/schema` | **Canonical schema** — fields, types, requireds, relationships, defaults |
-| `odoo://model/{model}/access` | Per-op permissions (read/write/create/unlink) for current user |
-| `odoo://fields/{model}` | Field definitions only (no relationships analysis) |
-| `odoo://methods/{model}` | Common ORM methods + usage example |
-| `odoo://workflows` | Workflow hints based on installed modules (sale, stock, crm, hr, account, project) |
-| `odoo://server/info` | Odoo version, database, installed modules |
-| `odoo://record/{model}/{id}` | Single-record lookup by id (all fields) |
-| `odoo://search/{model}/{domain}` | Inline search (URL-encoded JSON domain) |
+### Odoo discovery (7)
 
-### Self-improving knowledge (1)
+| URI | Kind | Purpose |
+|---|---|---|
+| `odoo://models` | concrete | All Odoo models — name + display name |
+| `odoo://workflows` | concrete | Workflow hints based on installed modules (sale, stock, crm, hr, account, project) |
+| `odoo://server/info` | concrete | Odoo version, database, installed modules |
+| `odoo://model/{model}/schema` | template | **Canonical schema** — fields, types, requireds, relationships, defaults |
+| `odoo://model/{model}/access` | template | Per-op permissions (read/write/create/unlink) for current user |
+| `odoo://methods/{model}` | template | Common ORM methods + usage example |
+| `odoo://record/{model}/{id}` | template | Single-record lookup by id (all fields) |
+
+There is no `odoo://model/{model}`, no `odoo://fields/{model}`, and no
+`odoo://search/{model}/{domain}` — earlier revisions of this document listed
+them, but they were never implemented. For a field list, use
+`odoo://model/{model}/schema`; for a search, use `execute_method`.
+
+### Self-improving knowledge (1, concrete)
 
 | URI | Purpose |
 |---|---|
@@ -525,10 +536,14 @@ python test_limits.py
 
 ### Debugging
 
-**Enhanced Logging (run_server.py):**
+**Enhanced logging (all transports):**
+
+Every runner tees stderr to a file via `logging_util.setup_file_logging`, so this
+is not specific to one entry point.
+
 ```bash
-# Logs to both stderr and ./logs/mcp_server_*.log
-python run_server.py
+# Logs to both stderr and ./logs/mcp_server_<transport>_<timestamp>.log
+odoo-mcp
 
 # View real-time logs
 tail -f logs/mcp_server_*.log
@@ -631,24 +646,40 @@ dev = [
 mcp-odoo-adv/
 ├── src/odoo_mcp/
 │   ├── __init__.py       # Package init
-│   ├── __main__.py       # Entry point (odoo-mcp command)
-│   ├── server.py         # MCP server (2 tools, 3 resources, 3 prompts)
-│   └── odoo_client.py    # Odoo JSON-RPC (14-18) + JSON-2 (19+) client
-├── run_server.py         # STDIO runner (enhanced logging)
-├── run_server_sse.py     # SSE runner (port 8009)
-├── run_server_http.py    # HTTP runner (port 8008)
+│   ├── __main__.py       # STDIO entry point (odoo-mcp command)
+│   ├── server.py         # MCP surface (3 tools, 8 resources, 3 prompts)
+│   ├── odoo_client.py    # Odoo JSON-RPC (14-18) + JSON-2 (19+) client
+│   ├── domain.py         # Search-domain normalization (pure)
+│   ├── limits.py         # Smart-limit policy (pure)
+│   ├── cookbook.py       # COOKBOOK.md Learned Patterns read/write (pure)
+│   ├── logging_util.py   # TeeLogger — stderr to terminal + file
+│   └── runners/
+│       ├── http.py           # Streamable HTTP  (odoo-mcp-http, 8008)
+│       ├── http_secure.py    # HTTP + Bearer auth (odoo-mcp-http-secure)
+│       └── sse.py            # SSE (odoo-mcp-sse, 8009) — deprecated
+├── tests/
+│   ├── test_domain.py       # pure domain normalization
+│   ├── test_limits.py       # pure smart-limit policy
+│   ├── test_cookbook.py     # pure COOKBOOK read/write
+│   └── test_mcp_surface.py  # in-memory MCP round-trips
 ├── pyproject.toml        # Package config (setuptools)
 ├── fastmcp.json          # MCP server metadata
 ├── README.md             # User documentation
-├── COOKBOOK.md           # 40+ usage examples
+├── AGENTS.md             # Assistant-facing quick reference
+├── COOKBOOK.md           # 45+ usage examples + Learned Patterns
 ├── CHANGELOG.md          # Version history
+├── SECURITY.md           # Hardening guide
 ├── DOCS/
 │   ├── CLAUDE.md         # This file
 │   ├── TRANSPORTS.md     # Transport details
-│   └── LICENSE           # MIT license
+│   ├── DOCKER.md         # Container deployment
+│   ├── SECURITY.md       # Security reference
+│   └── STREAMINGHTTP_GUIDE.md
+├── LICENSE               # GPL-3.0-or-later
 ├── Dockerfile            # STDIO container
 ├── Dockerfile.sse        # SSE container
 ├── Dockerfile.http       # HTTP container
+├── nginx.conf.example    # Reverse-proxy template
 ├── .env.example          # Environment template
 └── odoo_config.json.example  # Config template
 ```

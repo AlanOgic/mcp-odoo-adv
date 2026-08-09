@@ -401,13 +401,16 @@ curl -X POST https://mcp.yourdomain.com/mcp \
 
 **Server Architecture:**
 ```python
-# run_server_http.py
+# src/odoo_mcp/runners/http.py
 
-from src.odoo_mcp.server import mcp
 import os
 
+from ..logging_util import setup_file_logging
+from ..server import mcp
+
 # Get configuration
-host = os.environ.get("MCP_HOST", "0.0.0.0")  # Bind to all interfaces
+host = os.environ.get("MCP_HOST", "127.0.0.1")  # Loopback by default — this
+                                                # runner has NO authentication
 port = int(os.environ.get("MCP_PORT", "8008"))  # Port 8008
 path = os.environ.get("MCP_HTTP_PATH", "/mcp")  # Endpoint path
 
@@ -454,16 +457,16 @@ DEBUG=0                   # Debug logging
 **Local Development:**
 ```bash
 # Standard run
-python run_server_http.py
+odoo-mcp-http
 
 # Custom port
-MCP_PORT=9000 python run_server_http.py
+MCP_PORT=9000 odoo-mcp-http
 
 # Localhost only (more secure)
-MCP_HOST=127.0.0.1 python run_server_http.py
+MCP_HOST=127.0.0.1 odoo-mcp-http
 
 # With debug logging
-DEBUG=1 python run_server_http.py
+DEBUG=1 odoo-mcp-http
 ```
 
 **Docker:**
@@ -550,7 +553,7 @@ For production, use the HTTP Docker image (`Dockerfile.http`) behind a TLS-termi
 **Recommended stack:**
 - Container: `alanogic/mcp-odoo-adv:http` on port 8008
 - Reverse proxy: nginx (see [`nginx.conf.example`](../nginx.conf.example)) or Traefik
-- Auth: Bearer token via [`run_server_http_secure.py`](../run_server_http_secure.py) — see [SECURITY.md](../SECURITY.md)
+- Auth: Bearer token via [`odoo-mcp-http-secure`](../src/odoo_mcp/runners/http_secure.py) — see [SECURITY.md](../SECURITY.md)
 - Docker deployment details: [DOCKER.md](./DOCKER.md)
 
 **Minimal docker run:**

@@ -13,10 +13,10 @@ An advanced MCP (Model Context Protocol) server for Odoo ERP — STDIO, SSE, and
 Connect AI assistants to Odoo with **two universal tools** plus a self-improving knowledge base:
 
 1. **`execute_method`** — call any Odoo method on any model
-2. **`batch_execute`** — execute multiple operations atomically (with `@N` result references)
+2. **`batch_execute`** — run multiple operations in one call, in order, with fail-fast on error
 3. **`add_cookbook_pattern`** — document hard-won recipes after ≥4 failed attempts
 
-Plus 11 discovery resources, 3 prompts, and an `odoo://cookbook/patterns` resource that surfaces past lessons. No specialized tools, no validation layer, no artificial limits — full Odoo API.
+Plus 7 discovery resources, 3 prompts, and an `odoo://cookbook/patterns` resource that surfaces past lessons. No specialized tools, no validation layer, no artificial limits — full Odoo API.
 
 ### To rule them all. What You Can Do
 
@@ -117,11 +117,11 @@ After `pip install -e .`, four console scripts are wired up:
 # STDIO (Claude Desktop, Claude Code, Cursor)
 odoo-mcp                      # or: python -m odoo_mcp
 
-# SSE (browsers, port 8009)
-odoo-mcp-sse
-
-# Streamable HTTP (API integrations, port 8008)
+# Streamable HTTP (API integrations, browsers, port 8008)
 odoo-mcp-http
+
+# SSE (port 8009) — ⚠️ deprecated upstream, use Streamable HTTP for new work
+odoo-mcp-sse
 
 # HTTP with Bearer auth (production behind a reverse proxy)
 odoo-mcp-http-secure
@@ -261,23 +261,34 @@ execute_method(
 )
 ```
 
-### 2. batch_execute - Atomic Transactions
+### 2. batch_execute - Fewer Round Trips
 
-Execute multiple operations atomically. All succeed or all rollback. Use `"@N"` (1-indexed) inside `args_json` to reference a previous operation's result.
+Run several operations in a single call. They execute in order; with `atomic=True`
+(the default) the batch stops at the first error.
 
 ```python
 batch_execute(
     operations=[
-        {"model": "res.partner", "method": "create",
-         "args_json": '[{"name": "Acme"}]'},
-        {"model": "sale.order", "method": "create",
-         "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 5, "product_uom_qty": 1}]]}]'},
-        {"model": "sale.order", "method": "action_confirm",
-         "args_json": '[[@2]]'}
+        {"model": "crm.lead", "method": "write",
+         "args_json": '[[57], {"stage_id": 3}]'},
+        {"model": "crm.lead", "method": "message_post",
+         "args_json": '[[57]]',
+         "kwargs_json": '{"body": "<p>Moved to Qualified</p>", "message_type": "comment", "subtype_xmlid": "mail.mt_note"}'}
     ],
     atomic=True
 )
 ```
+
+**Two things it deliberately does not do**, so plan around them:
+
+- **No rollback.** `atomic=True` means *fail fast*, not *transactional*. Operations
+  that already ran stay committed — each one is a separate call to Odoo. Order your
+  operations so the riskiest runs first.
+- **No result chaining.** There is no `@N` placeholder syntax. To use a created
+  record's id, read it from the response and make a second call.
+
+If you need genuine all-or-nothing semantics, put the logic in an Odoo-side method
+and invoke that once with `execute_method`.
 
 ### 3. add_cookbook_pattern - Self-Improving Knowledge Base
 
@@ -316,7 +327,9 @@ The `≥4` threshold is enforced — shallow trial-and-error stays out of the co
 | `odoo://server/info` | Odoo version + installed modules |
 | `odoo://cookbook/patterns` | Learned Patterns from past sessions (read after first failure) |
 
-Plus `odoo://record/{model}/{id}`, `odoo://search/{model}/{domain}`, `odoo://fields/{model}`, `odoo://model/{model}` for one-off reads.
+Plus `odoo://record/{model}/{id}` for a one-off record read. That's the complete
+set — for a field list use `odoo://model/{model}/schema`, and to search use
+`execute_method`.
 
 ### The Cookbook
 
@@ -349,7 +362,7 @@ Eight skills ship in [`.claude/skills/`](./.claude/skills/) and auto-activate on
 - `odoo-mcp-crud` — create/write/unlink, archive vs delete
 - `odoo-mcp-relationships` — m2o/o2m/m2m command tuples
 - `odoo-mcp-workflows` — `action_confirm`, `action_post`, `button_validate`
-- `odoo-mcp-batch` — atomic transactions with `@N` references
+- `odoo-mcp-batch` — multi-operation calls, fail-fast ordering, no rollback
 - `odoo-mcp-real-world` — HR/CRM/inventory cross-model recipes
 - `odoo-mcp-learned-patterns` — cookbook read/write workflow
 
@@ -440,7 +453,7 @@ batch_execute(
 * **Universal Tools**: `execute_method` + `batch_execute` reach the entire Odoo API
 * **Self-improving cookbook**: `odoo://cookbook/patterns` resource + `add_cookbook_pattern` tool grow the institutional knowledge automatically
 * **Smart Limits**: Automatic protection against oversized queries (DEFAULT=100, MAX=1000)
-* **MCP 2025-06-18 spec**: Built on FastMCP 2.12+
+* **Built on FastMCP 3.x**: the MCP protocol revision is whatever FastMCP and the `mcp` SDK negotiate with your client — this server does not pin one
 
 ### Multiple Connection Options
 * **STDIO**: Direct integration with Claude Desktop

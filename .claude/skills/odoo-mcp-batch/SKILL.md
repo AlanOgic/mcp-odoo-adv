@@ -1,19 +1,32 @@
 ---
 name: odoo-mcp-batch
-description: Execute multiple Odoo operations atomically (all succeed or all rollback) via batch_execute. Use when an operation spans multiple records or models that must be consistent — creating customer + sale order together, moving leads through stages + logging notes, or any workflow where partial success corrupts state. Triggers on "atomic", "transaction", "all or nothing", "rollback", "batch", "multi-operation", "create and link", or whenever partial success would be worse than total failure.
+description: Run several Odoo operations in one batch_execute call to cut round trips, with fail-fast ordering so a bad step stops the rest. Use when a task needs multiple independent writes against known ids — bulk tag updates, multi-record writes, a write plus a message_post plus a subscribe on the same record. Triggers on "batch", "multi-operation", "bulk update", "several records at once", "in one call", "transaction", "atomic", "all or nothing", "rollback". Note it does NOT roll back and has no result chaining — this skill explains what to do instead.
 ---
 
-# Odoo MCP — Atomic batch operations
+# Odoo MCP — batching operations
 
-`batch_execute` runs a list of operations in a single transaction. Default mode is atomic: if any operation fails, all previous ones roll back. Use when records must be consistent across steps.
+`batch_execute` sends a list of operations in one MCP call. They run **in order**, each as its own Odoo call.
+
+Read this first, because the tool's name oversells it:
+
+| What you might assume | What actually happens |
+|---|---|
+| All-or-nothing transaction | ❌ No. Each op is a separate JSON-RPC call. |
+| Failure rolls back earlier ops | ❌ No. Earlier writes **stay written**. |
+| `@N` references a previous result | ❌ No such syntax. `"@1"` is sent to Odoo as the literal string `"@1"`. |
+| Fewer round trips than N calls | ✅ Yes. This is the real benefit. |
+| `atomic=True` stops at the first error | ✅ Yes — fail-fast, so later ops never run. |
 
 ## Universal shape
 
 ```python
 batch_execute(
     operations=[
-        {"model": "res.partner", "method": "create", "args_json": '[{"name": "New Co"}]'},
-        {"model": "sale.order", "method": "create", "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 101, "product_uom_qty": 1}]]}]'}
+        {"model": "res.partner", "method": "write",
+         "args_json": '[[42], {"customer_rank": 1}]'},
+        {"model": "res.partner", "method": "message_post",
+         "args_json": '[[42]]',
+         "kwargs_json": '{"body": "<p>Promoted to customer</p>", "message_type": "comment", "subtype_xmlid": "mail.mt_note"}'}
     ],
     atomic=True
 )
@@ -23,39 +36,49 @@ Response:
 ```python
 {
     "success": True,
-    "results": [{"success": True, "result": 42}, {"success": True, "result": 1337}],
+    "results": [{"operation_index": 0, "success": True, "result": True},
+                {"operation_index": 1, "success": True, "result": 1337}],
     "total_operations": 2,
     "successful_operations": 2,
-    "failed_operations": 0
+    "failed_operations": 0,
+    "error": None
 }
 ```
 
-## Reference previous operation results
+## Chaining: you need two calls
 
-Use `@N` in `args_json` to reference the Nth operation's result (1-indexed). The batch engine substitutes before each call.
+There is no way to feed operation 1's result into operation 2. Do it client-side.
 
 ```python
-operations=[
-    {"model": "res.partner", "method": "create", "args_json": '[{"name": "Acme", "email": "acme@example.com"}]'},
-    # @1 = partner id from step 1
-    {"model": "sale.order", "method": "create", "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 101, "product_uom_qty": 2}]]}]'},
-    # @2 = order id from step 2
-    {"model": "sale.order", "method": "action_confirm", "args_json": '[[@2]]'}
-]
+# ❌ WRONG — "@1" reaches Odoo as a literal string and the create fails
+batch_execute(operations=[
+    {"model": "res.partner", "method": "create", "args_json": '[{"name": "Acme"}]'},
+    {"model": "sale.order", "method": "create", "args_json": '[{"partner_id": "@1"}]'}
+])
+
+# ✅ RIGHT — read the id, then issue the dependent call
+r = execute_method(model="res.partner", method="create",
+                   args_json='[{"name": "Acme", "customer_rank": 1}]')
+partner_id = r["result"]
+
+execute_method(model="sale.order", method="create",
+               args_json=f'[{{"partner_id": {partner_id}, "order_line": [[0, 0, {{"product_id": 101, "product_uom_qty": 2}}]]}}]')
 ```
 
-## Atomic vs non-atomic
+Batching only helps when every operation's arguments are **already known**.
 
-**Atomic (default, `atomic=True`):**
-- Any failure → all previous operations rolled back
-- Use for: create + link, multi-step workflows, state transitions
+## atomic=True vs atomic=False
 
-**Non-atomic (`atomic=False`):**
-- Each operation stands alone; failures don't affect siblings
-- Use for: bulk imports where partial success is OK, parallel-like updates, reporting
+Neither mode rolls back. The difference is what happens *after* a failure.
+
+**`atomic=True` (default) — stop at the first error.**
+Later operations are never dispatched. Use when a later step is meaningless if an earlier one failed, and you'd rather stop than compound the mess.
+
+**`atomic=False` — keep going.**
+Each operation stands alone; one failure doesn't block its siblings. Use for bulk updates where partial success is fine.
 
 ```python
-# Bulk tag update — one failure shouldn't block the rest
+# Bulk tag update — one bad id shouldn't block the rest
 batch_execute(
     operations=[
         {"model": "res.partner", "method": "write", "args_json": '[[1], {"category_id": [[4, 5]]}]'},
@@ -66,40 +89,27 @@ batch_execute(
 )
 ```
 
-## Common patterns
+## Ordering is your only safety mechanism
 
-**Create customer + sale order + confirm:**
+Since nothing rolls back, sequence operations so the **most likely to fail runs first**. A failure then costs you nothing already written.
+
 ```python
+# Post the invoice first — it's the step that can fail on validation.
+# If it fails with atomic=True, no note is posted and nothing is half-done.
 batch_execute(
     operations=[
-        {"model": "res.partner", "method": "create",
-         "args_json": '[{"name": "Zenith SA", "email": "info@zenith.be", "customer_rank": 1}]'},
-        {"model": "sale.order", "method": "create",
-         "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 101, "product_uom_qty": 3}]]}]'},
-        {"model": "sale.order", "method": "action_confirm",
-         "args_json": '[[@2]]'},
+        {"model": "account.move", "method": "action_post",
+         "args_json": f'[[{invoice_id}]]'},
+        {"model": "account.move", "method": "message_post",
+         "args_json": f'[[{invoice_id}]]',
+         "kwargs_json": '{"body": "<p>Posted and sent to customer</p>", "message_type": "comment", "subtype_xmlid": "mail.mt_note"}'}
     ],
     atomic=True
 )
 ```
 
-If `action_confirm` fails (credit limit, etc.), the partner and order are rolled back.
+## Good fit: several writes on one known record
 
-**Invoice + payment together:**
-```python
-batch_execute(
-    operations=[
-        {"model": "account.move", "method": "action_post", "args_json": '[[invoice_id]]'},
-        {"model": "account.payment.register", "method": "create",
-         "args_json": '[{"amount": 1500.0, "payment_date": "2026-04-19"}]',
-         "kwargs_json": f'{{"context": {{"active_model": "account.move", "active_ids": [{invoice_id}]}}}}'},
-        {"model": "account.payment.register", "method": "action_create_payments", "args_json": '[[@2]]'}
-    ],
-    atomic=True
-)
-```
-
-**Lead progression — update stage + log note + subscribe:**
 ```python
 batch_execute(
     operations=[
@@ -116,36 +126,33 @@ batch_execute(
 )
 ```
 
+All three take `lead_id`, which you already have — no chaining needed.
+
 ## When NOT to use batch_execute
 
-- **Single operation**: just use `execute_method`, less ceremony
-- **Different reference data per op** with no result chaining: multiple independent `execute_method` calls are clearer
-- **Long-running imports** (thousands of records): consider a dedicated import via Odoo's `load()` method or a one-shot server action; batch_execute holds a transaction the whole time
+- **You need real atomicity.** It doesn't exist here. If a half-applied state is unacceptable, write an Odoo-side method that does the whole thing in one server call and invoke that with `execute_method`.
+- **Later ops depend on earlier results.** Use sequential `execute_method` calls.
+- **Single operation.** Just use `execute_method`.
+- **Thousands of records.** Use Odoo's `load()` or a server action.
 
 ## Error messages
-
-When atomic fails, the response tells you which operation failed:
 
 ```python
 {
     "success": False,
     "results": [
-        {"success": True, "result": 42},
-        {"success": False, "error": "partner_id required"}
+        {"operation_index": 0, "success": True, "result": 42},
+        {"operation_index": 1, "success": False, "error": "partner_id required"}
     ],
     "total_operations": 3,
     "successful_operations": 1,
     "failed_operations": 1,
-    "error": "Batch rolled back at operation 2: partner_id required"
+    "error": "Batch failed at operation 1: partner_id required (atomic mode - no operations committed)"
 }
 ```
 
-The error is your Odoo error — not a batch abstraction — so the fix is the same as a plain create/write.
+⚠️ **That error string is wrong.** It says "no operations committed", but operation 0 committed and stayed committed — partner 42 exists. Trust `results`, not the summary sentence. After any partial batch, verify actual state before retrying, or you'll create duplicates.
 
-## Why this matters
+## Why batching still matters
 
-Without `batch_execute`, the sequence "create customer → create order → confirm" could leave you with:
-- A partner but no order (second call failed)
-- A partner + draft order (third call failed) — worse, because now you have a stale record polluting reports
-
-Atomic batches remove that category of bug entirely.
+Fewer round trips over the wire, one MCP call instead of N, and fail-fast ordering that stops a doomed sequence early. That's a real win for multi-write tasks — just don't mistake it for a transaction.

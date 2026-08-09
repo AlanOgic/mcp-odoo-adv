@@ -17,9 +17,12 @@ pip install -e .
 uv --directory /absolute/path/of/mcp-odoo-adv odoo-mcp
 uvx --no-cache --directory /absolute/path/of/mcp-odoo-adv odoo-mcp
 python -m odoo_mcp
-python run_server.py
-python run_server_sse.py
-python run_server_html.py
+
+# Or the transport console scripts
+odoo-mcp                 # STDIO
+odoo-mcp-http            # Streamable HTTP (port 8008)
+odoo-mcp-http-secure     # Streamable HTTP + Bearer auth
+odoo-mcp-sse             # SSE (port 8009) — deprecated upstream
 ```
 
 ## Table of Contents

@@ -2,11 +2,22 @@
 
 The Odoo MCP Server supports three transport mechanisms for different use cases:
 
-| Transport | Use Case | Port | Clients |
-|-----------|----------|------|---------|
-| **STDIO** | Claude Desktop, CLI tools | N/A | Process pipes |
-| **SSE** | Web browsers, HTTP clients | 8009 | EventSource, curl |
-| **Streamable HTTP** | API integrations, programmatic | 8008 | httpx, fetch API |
+| Transport | Status | Use Case | Port | Clients |
+|-----------|--------|----------|------|---------|
+| **STDIO** | Active | Claude Desktop, CLI tools | N/A | Process pipes |
+| **Streamable HTTP** | Active | API integrations, web, programmatic | 8008 | httpx, fetch API |
+| **SSE** | ⚠️ **Deprecated** | Legacy clients only | 8009 | EventSource, curl |
+
+> **SSE is deprecated upstream.** The MCP specification deprecated the HTTP+SSE
+> transport in protocol revision `2025-03-26` and reclassified it as formally
+> **Deprecated** under the feature lifecycle policy in `2026-07-28`, which
+> guarantees a minimum twelve-month window before removal becomes possible.
+>
+> It still works here and we have no plan to drop it before upstream does — but
+> **do not build anything new on it.** Use Streamable HTTP, which covers every
+> SSE use case including browsers. If you are on SSE today, the migration is
+> mostly a port and path change (`:8009/sse` → `:8008/mcp`); see
+> [Migration: SSE → Streamable HTTP](#migration-sse--streamable-http) below.
 
 ## STDIO Transport (Default)
 
@@ -24,11 +35,11 @@ The Odoo MCP Server supports three transport mechanisms for different use cases:
 # Install package
 pip install -e .
 
-# Run directly
-python run_server.py
-
-# Or use installed command
+# Console script
 odoo-mcp
+
+# Or as a module (equivalent)
+python -m odoo_mcp
 ```
 
 ### Claude Desktop Configuration
@@ -50,9 +61,15 @@ odoo-mcp
 }
 ```
 
-## SSE Transport (Server-Sent Events)
+## SSE Transport (Server-Sent Events) — ⚠️ Deprecated
 
-**Best for:** Web browsers, real-time dashboards, streaming updates
+> **Deprecated upstream — do not adopt for new work.** Deprecated in MCP
+> protocol revision `2025-03-26`, formally Deprecated under the feature
+> lifecycle policy in `2026-07-28`. Use
+> [Streamable HTTP](#streamable-http-transport) instead; it serves browsers too.
+> This section is retained for users maintaining existing SSE deployments.
+
+**Best for:** existing SSE deployments only
 
 **Characteristics:**
 - One-way server-to-client streaming over HTTP
@@ -67,17 +84,17 @@ odoo-mcp
 pip install -e .
 
 # Run SSE server
-python run_server_sse.py
+odoo-mcp-sse
 
 # With custom configuration
-MCP_HOST=localhost MCP_PORT=9000 MCP_SSE_PATH=/events python run_server_sse.py
+MCP_HOST=localhost MCP_PORT=9000 MCP_SSE_PATH=/events odoo-mcp-sse
 ```
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MCP_HOST` | 0.0.0.0 | Host to bind to |
+| `MCP_HOST` | 127.0.0.1 | Host to bind to. This runner has **no authentication** — only set `0.0.0.0` behind an auth layer. |
 | `MCP_PORT` | 8009 | Port to listen on |
 | `MCP_SSE_PATH` | /sse | SSE endpoint path |
 
@@ -165,17 +182,17 @@ curl -N http://localhost:8009/sse
 pip install -e .
 
 # Run HTTP server
-python run_server_http.py
+odoo-mcp-http
 
 # With custom configuration
-MCP_HOST=localhost MCP_PORT=9000 MCP_HTTP_PATH=/api python run_server_http.py
+MCP_HOST=localhost MCP_PORT=9000 MCP_HTTP_PATH=/api odoo-mcp-http
 ```
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MCP_HOST` | 0.0.0.0 | Host to bind to |
+| `MCP_HOST` | 127.0.0.1 | Host to bind to. This runner has **no authentication** — only set `0.0.0.0` behind an auth layer, or use `odoo-mcp-http-secure` (Bearer token, defaults to `0.0.0.0`). |
 | `MCP_PORT` | 8008 | Port to listen on |
 | `MCP_HTTP_PATH` | /mcp | HTTP endpoint path |
 
@@ -268,6 +285,63 @@ curl -X POST http://localhost:8008/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
 ```
+
+## Migration: SSE → Streamable HTTP
+
+SSE is deprecated upstream (see the note at the top of this document). Streamable
+HTTP replaces it for every use case, browsers included. The server exposes the
+same tools, resources and prompts on both — only the endpoint changes.
+
+**1. Change how you start the server**
+
+```bash
+# Before
+odoo-mcp-sse                     # 127.0.0.1:8009/sse
+
+# After
+odoo-mcp-http                    # 127.0.0.1:8008/mcp
+odoo-mcp-http-secure             # adds Bearer auth; requires MCP_BEARER_TOKEN
+```
+
+**2. Change the environment variables**
+
+| SSE | Streamable HTTP |
+|---|---|
+| `MCP_SSE_PATH` (default `/sse`) | `MCP_HTTP_PATH` (default `/mcp`) |
+| `MCP_PORT` (default 8009) | `MCP_PORT` (default 8008) |
+| `MCP_HOST` | `MCP_HOST` (unchanged) |
+
+**3. Change the client URL**
+
+```diff
+- http://localhost:8009/sse
++ http://localhost:8008/mcp
+```
+
+**4. Swap the Docker image**
+
+```bash
+# Before
+docker build -t mcp/odoo:sse -f Dockerfile.sse .
+
+# After
+docker build -t mcp/odoo:http -f Dockerfile.http .
+```
+
+In `docker-compose.yml`, drop the `odoo-mcp-sse` service and keep
+`odoo-mcp-http`. If you terminate TLS at nginx, update the `proxy_pass` target
+and remove any SSE-specific buffering directives — see `nginx.conf.example`.
+
+**5. Verify**
+
+```bash
+curl -X POST http://localhost:8008/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
+```
+
+You should get all three tools back: `execute_method`, `batch_execute`,
+`add_cookbook_pattern`.
 
 ## Production Deployment
 
@@ -650,7 +724,7 @@ Environment="ODOO_USERNAME=your-username"
 Environment="ODOO_PASSWORD=your-password"
 Environment="MCP_HOST=127.0.0.1"
 Environment="MCP_PORT=8009"
-ExecStart=/opt/mcp-odoo-adv/.venv/bin/python run_server_sse.py
+ExecStart=/opt/mcp-odoo-adv/.venv/bin/odoo-mcp-sse
 Restart=always
 RestartSec=10
 
@@ -673,11 +747,11 @@ sudo systemctl status mcp-odoo-sse
 
 FastMCP provides built-in middleware support for authentication. The project includes:
 
-1. **Application-Level Bearer Token Authentication** (`run_server_http_secure.py`)
+1. **Application-Level Bearer Token Authentication** (`odoo-mcp-http-secure`)
    - FastMCP middleware with Bearer token validation
    - Constant-time token comparison (timing attack prevention)
    - Environment variable: `MCP_BEARER_TOKEN`
-   - Usage: `python run_server_http_secure.py`
+   - Usage: `odoo-mcp-http-secure`
 
 2. **Network-Level Authentication** (Nginx - see `nginx.conf.example`)
    - SSL/TLS termination
@@ -698,8 +772,8 @@ FastMCP provides built-in middleware support for authentication. The project inc
 | Transport | Network Risk | Built-in Auth | Recommendations |
 |-----------|--------------|---------------|-----------------|
 | **STDIO** | None | N/A | No network exposure, safe for local use |
-| **SSE** | High | ✅ Middleware | Use `run_server_http_secure.py` + Nginx for production |
-| **HTTP** | High | ✅ Middleware | Use `run_server_http_secure.py` + Nginx for production |
+| **SSE** | High | ✅ Middleware | Use `odoo-mcp-http-secure` + Nginx for production |
+| **HTTP** | High | ✅ Middleware | Use `odoo-mcp-http-secure` + Nginx for production |
 
 ### Docker Volume Security
 
@@ -869,8 +943,8 @@ lsof -i :8008
 kill -9 <PID>
 
 # Or use a different port
-MCP_PORT=8010 python run_server_sse.py
-MCP_PORT=8007 python run_server_http.py
+MCP_PORT=8010 odoo-mcp-sse
+MCP_PORT=8007 odoo-mcp-http
 ```
 
 ### CORS Issues (Browser Clients)
@@ -904,11 +978,13 @@ Or configure in FastMCP (if supported in future versions).
 graph TD
     A[Choose Transport] --> B{Local only?}
     B -->|Yes| C[STDIO]
-    B -->|No| D{Client type?}
-    D -->|Browser| E[SSE]
-    D -->|API/Server| F[Streamable HTTP]
-    D -->|CLI Tool| C
+    B -->|No| F[Streamable HTTP]
+    C -.->|CLI Tool| C
+    F -.->|Browser, API, server-to-server| F
 ```
+
+For new work there are only two choices — STDIO for local, Streamable HTTP for
+everything else. SSE is deprecated and is not on this diagram by design.
 
 **Use STDIO when:**
 - Integrating with Claude Desktop
@@ -916,17 +992,17 @@ graph TD
 - No network access needed
 - Maximum performance required
 
-**Use SSE when:**
-- Building web dashboards
-- Real-time browser updates
-- Simple client implementation
-- One-way data flow sufficient
-
 **Use Streamable HTTP when:**
 - Building API integrations
 - Server-to-server communication
+- Web dashboards and browser clients (it replaces SSE here)
 - Bidirectional streaming needed
 - Standard HTTP client compatibility required
+
+**Use SSE when:**
+- You are maintaining an existing SSE deployment and have not migrated yet.
+  That's the only reason. See
+  [Migration: SSE → Streamable HTTP](#migration-sse--streamable-http).
 
 ## Additional Resources
 

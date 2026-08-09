@@ -7,7 +7,7 @@ This file is the quick reference for AI assistants (Claude, Cursor, ChatGPT-via-
 | Surface | Count | Purpose |
 |---|---|---|
 | **Tools** | 3 | `execute_method`, `batch_execute`, `add_cookbook_pattern` |
-| **Resources** | 11 | discovery (`odoo://models`, `odoo://model/{m}/schema`, …) + `odoo://cookbook/patterns` |
+| **Resources** | 8 | discovery (`odoo://models`, `odoo://model/{m}/schema`, …) + `odoo://cookbook/patterns` |
 | **Prompts** | 3 | `search-customers`, `create-sales-order`, `odoo-exploration` |
 
 You don't need a tool per Odoo operation. `execute_method` lets you call **any** method on **any** model — that's the entire Odoo ORM.
@@ -32,23 +32,31 @@ Every response is `{"success": bool, "result": ...}` or `{"success": False, "err
 
 ### `batch_execute(operations, atomic=True)`
 
-Run multiple operations in one transaction. Use `@N` to reference a previous operation's result (1-indexed).
+Run multiple operations in one call, in order, saving round trips.
 
 ```python
 batch_execute(
     operations=[
         {"model": "res.partner", "method": "create",
          "args_json": '[{"name": "Acme"}]'},
-        {"model": "sale.order", "method": "create",
-         "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 5, "product_uom_qty": 1}]]}]'},
-        {"model": "sale.order", "method": "action_confirm",
-         "args_json": '[[@2]]'}
+        {"model": "res.partner", "method": "write",
+         "args_json": '[[123], {"customer_rank": 1}]'}
     ],
     atomic=True
 )
 ```
 
-If any step fails with `atomic=True`, all previous steps roll back.
+**Two limits you must plan around:**
+
+1. **No back-references.** There is no `@N` placeholder syntax. An operation
+   cannot consume an earlier operation's result. To use a created record's id,
+   read it from the first call's response and issue a second `batch_execute`.
+
+2. **`atomic=True` fails fast — it does not roll back.** It stops at the first
+   error and reports which operation failed, but anything already written to
+   Odoo stays written. There is no shared transaction across calls. Order your
+   operations so the most failure-prone one runs first, and treat a partial
+   batch as a state you may need to clean up.
 
 ## Discovery resources
 
@@ -57,15 +65,17 @@ Read these **before guessing**. They cost less than a failed `execute_method` ca
 | Resource | Returns |
 |---|---|
 | `odoo://models` | All Odoo models in this instance |
-| `odoo://model/{model}` | Model summary + field list |
 | `odoo://model/{model}/schema` | Full schema: fields, types, requireds, relationships |
 | `odoo://model/{model}/access` | Your CRUD permissions on this model |
-| `odoo://fields/{model}` | Field definitions only |
 | `odoo://methods/{model}` | Methods available on this model |
 | `odoo://workflows` | Business workflows enabled by installed modules |
 | `odoo://server/info` | Odoo version, database, installed modules |
 | `odoo://record/{model}/{id}` | A single record |
-| `odoo://search/{model}/{domain}` | Search results for a quoted domain |
+| `odoo://cookbook/patterns` | Learned Patterns from `COOKBOOK.md` (see below) |
+
+That's the complete list. If you're looking for `odoo://model/{model}`,
+`odoo://fields/{model}`, or `odoo://search/{model}/{domain}` — they don't
+exist. Use `odoo://model/{model}/schema` for fields, `execute_method` to search.
 
 ## The cookbook (after your first failure)
 
@@ -156,7 +166,7 @@ Eight Claude Code skills ship in `.claude/skills/` and auto-activate on relevant
 - `odoo-mcp-crud` — create/write/unlink, archive vs delete
 - `odoo-mcp-relationships` — m2o/o2m/m2m command tuples
 - `odoo-mcp-workflows` — action_confirm, action_post, button_validate
-- `odoo-mcp-batch` — atomic transactions with `@N` references
+- `odoo-mcp-batch` — multi-operation calls, fail-fast ordering, no rollback
 - `odoo-mcp-real-world` — HR/CRM/inventory cross-model recipes
 - `odoo-mcp-learned-patterns` — cookbook read/write workflow
 

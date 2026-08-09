@@ -11,7 +11,7 @@ This document provides comprehensive security guidance for deploying the Odoo MC
 export MCP_BEARER_TOKEN="$(openssl rand -hex 32)"
 
 # 2. Run secure server
-python run_server_http_secure.py
+odoo-mcp-http-secure
 
 # 3. Client connects with token
 curl -X POST http://localhost:8008/mcp \
@@ -37,7 +37,7 @@ docker-compose up odoo-mcp-http
 
 ### 1. Application-Level Authentication ✅
 
-**FastMCP Middleware** (`run_server_http_secure.py`)
+**FastMCP Middleware** (`src/odoo_mcp/runners/http_secure.py`)
 
 **Features:**
 - Bearer token authentication
@@ -55,7 +55,7 @@ export MCP_BEARER_TOKEN="$(openssl rand -hex 32)"
 echo ${#MCP_BEARER_TOKEN}  # Should be >= 64
 
 # Run secure server
-python run_server_http_secure.py
+odoo-mcp-http-secure
 ```
 
 **Environment Variables:**
@@ -233,10 +233,9 @@ services:
 
 **Testing Security:**
 
-```bash
-# Run automated security tests
-./test_docker_security.sh
+There is no automated security-test script in this repo — verify by hand:
 
+```bash
 # Manual verification
 docker run --rm \
   -v $(pwd):/app:ro \
@@ -352,7 +351,7 @@ tail -f logs/mcp_server_http_secure_*.log | grep -E "(CRITICAL|ERROR|❌)"
 **Prometheus Metrics (Future):**
 
 ```python
-# Add to run_server_http_secure.py
+# Add to src/odoo_mcp/runners/http_secure.py
 from prometheus_client import Counter, Histogram
 
 auth_failures = Counter('mcp_auth_failures', 'Failed authentication attempts')
@@ -513,10 +512,10 @@ If processing payment data:
 
 | File | Purpose |
 |------|---------|
-| `run_server_http_secure.py` | Secure HTTP server with Bearer auth |
+| `src/odoo_mcp/runners/http_secure.py` | Secure HTTP server with Bearer auth — run it via the `odoo-mcp-http-secure` console script |
 | `nginx.conf.example` | Nginx reverse proxy configuration |
 | `docker-compose.yml` | Docker deployment with security hardening |
-| `test_docker_security.sh` | Automated security tests |
+| `docker-compose.prod.yml` | Production compose overlay |
 | `.env` | Environment variables (DO NOT COMMIT) |
 
 ### Port Overview
@@ -534,13 +533,13 @@ If processing payment data:
 - [ ] Generate strong Bearer token (64+ characters)
 - [ ] Store token in `.env` file
 - [ ] Add `.env` to `.gitignore`
-- [ ] Use `run_server_http_secure.py` instead of `run_server_http.py`
+- [ ] Use `odoo-mcp-http-secure` instead of `odoo-mcp-http`
 - [ ] Configure Nginx reverse proxy
 - [ ] Enable SSL/TLS with Let's Encrypt
 - [ ] Set up rate limiting
 - [ ] Configure IP whitelisting
 - [ ] Enable Docker security hardening
-- [ ] Test with `test_docker_security.sh`
+- [ ] Verify container hardening manually (see **Testing Security** above)
 - [ ] Set up monitoring and logging
 - [ ] Document token rotation schedule
 - [ ] Test incident response procedures

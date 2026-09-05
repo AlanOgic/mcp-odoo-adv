@@ -8,13 +8,13 @@ import json
 import sys
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, cast
 
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel, Field
 
 from . import cookbook as _cookbook
+from .batch import FAILED, substitute_references
 from .domain import normalize_domain
 from .limits import SEARCH_METHODS, apply_limits, warn_large_read, warn_large_result
 from .odoo_client import OdooClient, get_odoo_client
@@ -72,9 +72,7 @@ def get_models() -> str:
     try:
         model_ids = odoo_client.execute_method("ir.model", "search", [])
         if not model_ids:
-            return json.dumps(
-                {"model_names": [], "models_details": {}}, indent=2
-            )
+            return json.dumps({"model_names": [], "models_details": {}}, indent=2)
         records = odoo_client.execute_method(
             "ir.model", "read", model_ids, ["model", "name"]
         )
@@ -110,9 +108,7 @@ def get_record(model_name: str, record_id: str) -> str:
     except ValueError:
         return _error(f"record_id must be an integer, got {record_id!r}")
     try:
-        records = odoo_client.execute_method(
-            model_name, "read", [record_id_int]
-        )
+        records = odoo_client.execute_method(model_name, "read", [record_id_int])
         if not records:
             return _error(f"Record not found: {model_name} ID {record_id}")
         return json.dumps(records[0], indent=2)
@@ -148,32 +144,32 @@ def get_model_schema(model_name: str) -> str:
             "relationships": {},
             "required_fields": [],
             "readonly_fields": [],
-            "computed_fields": []
+            "computed_fields": [],
         }
 
         # Categorize fields
         for field_name, field_def in fields.items():
-            field_type = field_def.get('type', '')
+            field_type = field_def.get("type", "")
 
             # Track relationships
-            if field_type in ['many2one', 'one2many', 'many2many']:
-                schema['relationships'][field_name] = {
-                    'type': field_type,
-                    'relation': field_def.get('relation', ''),
-                    'string': field_def.get('string', '')
+            if field_type in ["many2one", "one2many", "many2many"]:
+                schema["relationships"][field_name] = {
+                    "type": field_type,
+                    "relation": field_def.get("relation", ""),
+                    "string": field_def.get("string", ""),
                 }
 
             # Track required fields
-            if field_def.get('required'):
-                schema['required_fields'].append(field_name)
+            if field_def.get("required"):
+                schema["required_fields"].append(field_name)
 
             # Track readonly fields
-            if field_def.get('readonly'):
-                schema['readonly_fields'].append(field_name)
+            if field_def.get("readonly"):
+                schema["readonly_fields"].append(field_name)
 
             # Track computed fields
-            if field_def.get('store') is False or field_def.get('compute'):
-                schema['computed_fields'].append(field_name)
+            if field_def.get("store") is False or field_def.get("compute"):
+                schema["computed_fields"].append(field_name)
 
         return json.dumps(schema, indent=2)
     except Exception as e:
@@ -183,10 +179,7 @@ def get_model_schema(model_name: str) -> str:
 @mcp.resource(
     "odoo://model/{model_name}/access",
     description="Access rights for the current user on this model",
-    annotations={
-        "audience": ["assistant"],
-        "priority": 0.7
-    }
+    annotations={"audience": ["assistant"], "priority": 0.7},
 )
 def get_model_access(model_name: str) -> str:
     """
@@ -201,26 +194,29 @@ def get_model_access(model_name: str) -> str:
     try:
         # Check access rights for all CRUD operations
         access_rights = {}
-        operations = ['read', 'write', 'create', 'unlink']
+        operations = ["read", "write", "create", "unlink"]
 
         for operation in operations:
             try:
                 # Use check_access_rights method
                 has_access = odoo_client.execute_method(
                     model_name,
-                    'check_access_rights',
+                    "check_access_rights",
                     operation,
-                    False  # raise_exception=False
+                    False,  # raise_exception=False
                 )
                 access_rights[operation] = has_access
             except Exception:
                 access_rights[operation] = False
 
-        return json.dumps({
-            "model": model_name,
-            "access_rights": access_rights,
-            "note": "These are model-level permissions. Record-level rules may further restrict access."
-        }, indent=2)
+        return json.dumps(
+            {
+                "model": model_name,
+                "access_rights": access_rights,
+                "note": "These are model-level permissions. Record-level rules may further restrict access.",
+            },
+            indent=2,
+        )
     except Exception as e:
         return json.dumps({"error": str(e)}, indent=2)
 
@@ -228,10 +224,7 @@ def get_model_access(model_name: str) -> str:
 @mcp.resource(
     "odoo://workflows",
     description="Available business workflows based on installed modules",
-    annotations={
-        "audience": ["assistant"],
-        "priority": 0.8
-    }
+    annotations={"audience": ["assistant"], "priority": 0.8},
 )
 def get_workflows() -> str:
     """
@@ -256,8 +249,8 @@ def get_workflows() -> str:
         # Define known workflows for common modules
         workflows = {}
 
-        if 'sale' in module_names:
-            workflows['sales'] = {
+        if "sale" in module_names:
+            workflows["sales"] = {
                 "module": "sale",
                 "title": "Sales Management",
                 "workflows": [
@@ -267,9 +260,9 @@ def get_workflows() -> str:
                             "Create quotation (sale.order with state='draft')",
                             "Send quotation to customer (method: action_quotation_send)",
                             "Confirm order (method: action_confirm)",
-                            "Create invoice (method: _create_invoices)"
+                            "Create invoice (method: _create_invoices)",
                         ],
-                        "model": "sale.order"
+                        "model": "sale.order",
                     },
                     {
                         "name": "create_customer_order",
@@ -277,15 +270,15 @@ def get_workflows() -> str:
                             "Create/find customer (res.partner)",
                             "Create sale.order with partner_id",
                             "Add order lines (sale.order.line)",
-                            "Confirm order"
+                            "Confirm order",
                         ],
-                        "models": ["res.partner", "sale.order", "sale.order.line"]
-                    }
-                ]
+                        "models": ["res.partner", "sale.order", "sale.order.line"],
+                    },
+                ],
             }
 
-        if 'stock' in module_names:
-            workflows['inventory'] = {
+        if "stock" in module_names:
+            workflows["inventory"] = {
                 "module": "stock",
                 "title": "Inventory Management",
                 "workflows": [
@@ -294,24 +287,24 @@ def get_workflows() -> str:
                         "steps": [
                             "Create picking (stock.picking)",
                             "Add move lines (stock.move)",
-                            "Validate transfer (method: button_validate)"
+                            "Validate transfer (method: button_validate)",
                         ],
-                        "model": "stock.picking"
+                        "model": "stock.picking",
                     },
                     {
                         "name": "inventory_adjustment",
                         "steps": [
                             "Create inventory adjustment (stock.inventory)",
                             "Set product quantities",
-                            "Validate adjustment"
+                            "Validate adjustment",
                         ],
-                        "model": "stock.inventory"
-                    }
-                ]
+                        "model": "stock.inventory",
+                    },
+                ],
             }
 
-        if 'crm' in module_names:
-            workflows['crm'] = {
+        if "crm" in module_names:
+            workflows["crm"] = {
                 "module": "crm",
                 "title": "CRM / Leads",
                 "workflows": [
@@ -321,15 +314,15 @@ def get_workflows() -> str:
                             "Create lead (crm.lead)",
                             "Convert to opportunity (method: convert_opportunity)",
                             "Move through stages",
-                            "Mark as won (method: action_set_won)"
+                            "Mark as won (method: action_set_won)",
                         ],
-                        "model": "crm.lead"
+                        "model": "crm.lead",
                     }
-                ]
+                ],
             }
 
-        if 'hr' in module_names:
-            workflows['hr'] = {
+        if "hr" in module_names:
+            workflows["hr"] = {
                 "module": "hr",
                 "title": "Human Resources",
                 "workflows": [
@@ -338,15 +331,15 @@ def get_workflows() -> str:
                         "steps": [
                             "Create leave request (hr.leave)",
                             "Submit for approval (method: action_approve)",
-                            "Manager validates or refuses"
+                            "Manager validates or refuses",
                         ],
-                        "model": "hr.leave"
+                        "model": "hr.leave",
                     }
-                ]
+                ],
             }
 
-        if 'account' in module_names:
-            workflows['accounting'] = {
+        if "account" in module_names:
+            workflows["accounting"] = {
                 "module": "account",
                 "title": "Accounting",
                 "workflows": [
@@ -356,15 +349,15 @@ def get_workflows() -> str:
                             "Create invoice (account.move with move_type='out_invoice')",
                             "Add invoice lines (account.move.line)",
                             "Post invoice (method: action_post)",
-                            "Register payment"
+                            "Register payment",
                         ],
-                        "model": "account.move"
+                        "model": "account.move",
                     }
-                ]
+                ],
             }
 
-        if 'project' in module_names:
-            workflows['projects'] = {
+        if "project" in module_names:
+            workflows["projects"] = {
                 "module": "project",
                 "title": "Project Management",
                 "workflows": [
@@ -374,18 +367,21 @@ def get_workflows() -> str:
                             "Create project (project.project)",
                             "Create tasks (project.task)",
                             "Assign to users",
-                            "Track progress through stages"
+                            "Track progress through stages",
                         ],
-                        "models": ["project.project", "project.task"]
+                        "models": ["project.project", "project.task"],
                     }
-                ]
+                ],
             }
 
-        return json.dumps({
-            "installed_modules": list(module_names.keys()),
-            "available_workflows": workflows,
-            "note": "Use execute_method tool to call the methods mentioned in workflow steps"
-        }, indent=2)
+        return json.dumps(
+            {
+                "installed_modules": list(module_names.keys()),
+                "available_workflows": workflows,
+                "note": "Use execute_method tool to call the methods mentioned in workflow steps",
+            },
+            indent=2,
+        )
 
     except Exception as e:
         return json.dumps({"error": str(e)}, indent=2)
@@ -401,10 +397,7 @@ def get_workflows() -> str:
     Example: execute_method(model='res.partner', method='search_read',
                            args_json='[[...domain...]]', kwargs_json='{...}')
     """,
-    annotations={
-        "audience": ["assistant"],
-        "priority": 0.7
-    }
+    annotations={"audience": ["assistant"], "priority": 0.7},
 )
 def get_methods(model_name: str) -> str:
     """
@@ -419,7 +412,7 @@ def get_methods(model_name: str) -> str:
     Parameters:
         model_name: Name of the Odoo model (e.g., 'res.partner')
     """
-    odoo_client = get_odoo_client()
+    # Static ORM reference — no Odoo round-trip needed.
     try:
         # Return common Odoo ORM methods
         common_methods = {
@@ -427,69 +420,64 @@ def get_methods(model_name: str) -> str:
                 {
                     "name": "search",
                     "description": "Search for record IDs matching domain",
-                    "params": ["domain", "offset", "limit", "order", "count"]
+                    "params": ["domain", "offset", "limit", "order", "count"],
                 },
                 {
                     "name": "search_read",
                     "description": "Search and read records in one call",
-                    "params": ["domain", "fields", "offset", "limit", "order"]
+                    "params": ["domain", "fields", "offset", "limit", "order"],
                 },
                 {
                     "name": "read",
                     "description": "Read specific fields from records",
-                    "params": ["ids", "fields"]
+                    "params": ["ids", "fields"],
                 },
                 {
                     "name": "search_count",
                     "description": "Count records matching domain",
-                    "params": ["domain"]
+                    "params": ["domain"],
                 },
                 {
                     "name": "name_search",
                     "description": "Search records by name",
-                    "params": ["name", "args", "operator", "limit"]
+                    "params": ["name", "args", "operator", "limit"],
                 },
                 {
                     "name": "name_get",
                     "description": "Get display names for records",
-                    "params": ["ids"]
+                    "params": ["ids"],
                 },
                 {
                     "name": "fields_get",
                     "description": "Get field definitions",
-                    "params": ["allfields", "attributes"]
-                }
+                    "params": ["allfields", "attributes"],
+                },
             ],
             "write_methods": [
                 {
                     "name": "create",
                     "description": "Create new record(s)",
-                    "params": ["vals"]
+                    "params": ["vals"],
                 },
                 {
                     "name": "write",
                     "description": "Update existing record(s)",
-                    "params": ["ids", "vals"]
+                    "params": ["ids", "vals"],
                 },
                 {
                     "name": "unlink",
                     "description": "Delete record(s)",
-                    "params": ["ids"]
-                }
+                    "params": ["ids"],
+                },
             ],
             "note": f"Use execute_method tool to call these methods on {model_name}",
             "example": {
                 "tool": "execute_method",
                 "model": model_name,
                 "method": "search_read",
-                "args": [
-                    [["name", "ilike", "example"]]
-                ],
-                "kwargs": {
-                    "fields": ["id", "name"],
-                    "limit": 10
-                }
-            }
+                "args": [[["name", "ilike", "example"]]],
+                "kwargs": {"fields": ["id", "name"], "limit": 10},
+            },
         }
 
         return json.dumps(common_methods, indent=2)
@@ -500,10 +488,7 @@ def get_methods(model_name: str) -> str:
 @mcp.resource(
     "odoo://server/info",
     description="Get Odoo server information including version and installed modules",
-    annotations={
-        "audience": ["user", "assistant"],
-        "priority": 0.5
-    }
+    annotations={"audience": ["user", "assistant"], "priority": 0.5},
 )
 def get_server_info() -> str:
     """
@@ -539,23 +524,27 @@ def get_server_info() -> str:
         version_info = base_info  # shape-compatible with old code
 
         # Get database name from config
-        db_name = odoo_client.db if hasattr(odoo_client, 'db') else "unknown"
+        db_name = odoo_client.db if hasattr(odoo_client, "db") else "unknown"
 
         server_info = {
             "database": db_name,
-            "odoo_version": version_info[0].get('latest_version', 'unknown') if version_info else 'unknown',
+            "odoo_version": (
+                version_info[0].get("latest_version", "unknown")
+                if version_info
+                else "unknown"
+            ),
             "installed_modules_count": len(module_ids) if module_ids else 0,
             "installed_modules": [
                 {
-                    "name": mod.get('name'),
-                    "title": mod.get('shortdesc'),
-                    "version": mod.get('installed_version'),
-                    "author": mod.get('author', 'Unknown'),
-                    "application": mod.get('application', False),
-                    "license": mod.get('license', 'Unknown')
+                    "name": mod.get("name"),
+                    "title": mod.get("shortdesc"),
+                    "version": mod.get("installed_version"),
+                    "author": mod.get("author", "Unknown"),
+                    "application": mod.get("application", False),
+                    "license": mod.get("license", "Unknown"),
                 }
                 for mod in installed_modules
-            ]
+            ],
         }
 
         return json.dumps(server_info, indent=2)
@@ -583,9 +572,7 @@ def get_cookbook_patterns() -> str:
             {
                 "found": False,
                 "error": "COOKBOOK.md not found",
-                "searched_paths": [
-                    str(p) for p in _cookbook.default_cookbook_paths()
-                ],
+                "searched_paths": [str(p) for p in _cookbook.default_cookbook_paths()],
             },
             indent=2,
         )
@@ -598,7 +585,9 @@ def get_cookbook_patterns() -> str:
 class ExecuteMethodResponse(BaseModel):
     """Response model for the execute_method tool."""
 
-    success: bool = Field(description="Indicates if the method execution was successful")
+    success: bool = Field(
+        description="Indicates if the method execution was successful"
+    )
     result: Optional[Any] = Field(
         default=None, description="Result of the method execution"
     )
@@ -613,7 +602,65 @@ class BatchExecuteResponse(BaseModel):
     total_operations: int = Field(description="Total number of operations attempted")
     successful_operations: int = Field(description="Number of successful operations")
     failed_operations: int = Field(description="Number of failed operations")
-    error: Optional[str] = Field(default=None, description="Overall error message if batch failed")
+    rolled_back: bool = Field(
+        default=False,
+        description=(
+            "Always False. Odoo commits each operation independently, so this "
+            "server cannot roll back operations that already succeeded."
+        ),
+    )
+    error: Optional[str] = Field(
+        default=None, description="Overall error message if batch failed"
+    )
+
+
+def _odoo_from(ctx: Context) -> OdooClient:
+    """Return the Odoo client held on the request's lifespan context."""
+    request_context = ctx.request_context
+    if request_context is None:  # pragma: no cover - FastMCP always sets this
+        raise RuntimeError("batch/execute called without an active request context")
+    return cast(OdooClient, request_context.lifespan_context.odoo)
+
+
+def _prepare_call(method: str, args: list, kwargs: dict) -> tuple:
+    """Apply domain normalization and the smart-limit policy to a single call.
+
+    Shared by ``execute_method`` and ``batch_execute`` so both paths get the
+    same guardrails. Warnings go to stderr; the adjusted ``(args, kwargs)``
+    are returned.
+    """
+    if method in SEARCH_METHODS and args:
+        args = list(args)
+        args[0] = normalize_domain(args[0])
+        print(f"Normalized domain for {method}: {args[0]}", file=sys.stderr)
+
+    kwargs, limit_warnings = apply_limits(method, kwargs)
+    for warning in limit_warnings:
+        print(f"\u26a0\ufe0f  {warning}", file=sys.stderr)
+
+    if method == "read":
+        for warning in warn_large_read(args):
+            print(f"\u26a0\ufe0f  {warning}", file=sys.stderr)
+
+    return args, kwargs
+
+
+def _batch_argument(
+    raw_json: Any, direct: Any, kind: type, default: Any, label: str, idx: int
+) -> Any:
+    """Read one operation's args/kwargs from either the JSON or direct form."""
+    if raw_json:
+        value = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
+    elif direct is not None:
+        value = direct
+    else:
+        return default
+    if not isinstance(value, kind):
+        raise ValueError(
+            f"Operation {idx}: {label} must be a {kind.__name__}, "
+            f"got {type(value).__name__}"
+        )
+    return value
 
 
 # ----- MCP Tools -----
@@ -645,14 +692,14 @@ class BatchExecuteResponse(BaseModel):
 
     Odoo provides excellent error messages for validation - no pre-check needed!
     """,
-    output_schema=ExecuteMethodResponse.model_json_schema()
+    output_schema=ExecuteMethodResponse.model_json_schema(),
 )
 def execute_method(
     ctx: Context,
     model: str,
     method: str,
-    args_json: str = None,
-    kwargs_json: str = None,
+    args_json: Optional[str] = None,
+    kwargs_json: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Execute ANY method on an Odoo model - UNIVERSAL FALLBACK TOOL
@@ -711,7 +758,7 @@ def execute_method(
     - Odoo's own validation errors are descriptive — let the call fail and
       read the error rather than pre-validating client-side
     """
-    odoo = ctx.request_context.lifespan_context.odoo
+    odoo = _odoo_from(ctx)
     try:
         # Parse JSON strings to actual Python objects
         args = []
@@ -721,32 +768,32 @@ def execute_method(
             try:
                 args = json.loads(args_json)
                 if not isinstance(args, list):
-                    return {"success": False, "error": f"args_json must be a JSON array, got: {type(args).__name__}"}
+                    return {
+                        "success": False,
+                        "error": f"args_json must be a JSON array, got: {type(args).__name__}",
+                    }
             except json.JSONDecodeError as e:
-                return {"success": False, "error": f"Invalid JSON in args_json: {str(e)}"}
+                return {
+                    "success": False,
+                    "error": f"Invalid JSON in args_json: {str(e)}",
+                }
 
         if kwargs_json:
             try:
                 kwargs = json.loads(kwargs_json)
                 if not isinstance(kwargs, dict):
-                    return {"success": False, "error": f"kwargs_json must be a JSON object, got: {type(kwargs).__name__}"}
+                    return {
+                        "success": False,
+                        "error": f"kwargs_json must be a JSON object, got: {type(kwargs).__name__}",
+                    }
             except json.JSONDecodeError as e:
-                return {"success": False, "error": f"Invalid JSON in kwargs_json: {str(e)}"}
+                return {
+                    "success": False,
+                    "error": f"Invalid JSON in kwargs_json: {str(e)}",
+                }
 
-        # Normalize the search domain (args[0]) for search-family methods
-        if method in SEARCH_METHODS and args:
-            args = list(args)
-            args[0] = normalize_domain(args[0])
-            print(f"Normalized domain for {method}: {args[0]}", file=sys.stderr)
-
-        # Smart-limit policy
-        kwargs, limit_warnings = apply_limits(method, kwargs)
-        for warning in limit_warnings:
-            print(f"⚠️  {warning}", file=sys.stderr)
-
-        if method == "read":
-            for warning in warn_large_read(args):
-                print(f"⚠️  {warning}", file=sys.stderr)
+        # Domain normalization + smart-limit policy (shared with batch_execute)
+        args, kwargs = _prepare_call(method, args, kwargs)
 
         result = odoo.execute_method(model, method, *args, **kwargs)
 
@@ -759,29 +806,49 @@ def execute_method(
 
 
 @mcp.tool(
-    description="Execute multiple Odoo operations in a batch - Atomic transaction support",
-    output_schema=BatchExecuteResponse.model_json_schema()
+    description="""Execute multiple Odoo operations in sequence.
+
+    ⚠️ NOT ATOMIC — this server cannot roll back. Odoo commits each operation
+    as its own transaction, so any operation that has already succeeded stays
+    committed even if a later one fails. `stop_on_error=True` (the default)
+    halts at the first failure to limit the blast radius; it does NOT undo
+    what came before. If you need true all-or-nothing semantics, write an
+    Odoo-side method that does the whole unit of work and call that instead.
+
+    Result references: a string of the exact form "@N" (1-indexed) anywhere in
+    an operation's args/kwargs is replaced with the result of operation N.
+    Create a partner, then pass "@1" as partner_id on the order.
+
+    Each operation gets the same domain normalization and smart limits as
+    execute_method.
+    """,
+    output_schema=BatchExecuteResponse.model_json_schema(),
 )
 def batch_execute(
     ctx: Context,
     operations: List[Dict[str, Any]],
-    atomic: bool = True
+    stop_on_error: bool = True,
+    atomic: Optional[bool] = None,
 ) -> BatchExecuteResponse:
     """
-    Execute multiple operations efficiently in one call
+    Execute multiple operations in one call, in order.
 
-    Supports atomic transactions: if one fails, all rollback (when atomic=True)
+    NOT a transaction. See the tool description: earlier successes are not
+    rolled back when a later operation fails.
 
     Parameters:
         operations: List of operations, each with:
                    - model: str (required)
                    - method: str (required)
-                   - args: list (optional, direct format) OR args_json: str (JSON string format)
-                   - kwargs: dict (optional, direct format) OR kwargs_json: str (JSON string format)
-        atomic: If True, all operations succeed or all fail (rollback on error)
+                   - args: list (optional) OR args_json: str (JSON string)
+                   - kwargs: dict (optional) OR kwargs_json: str (JSON string)
+        stop_on_error: Stop at the first failure (default). When False, every
+                   operation is attempted and failures are reported per-item.
+        atomic: Deprecated alias for stop_on_error. It never provided rollback
+                   despite the name; pass stop_on_error instead.
 
     Examples:
-        # Create customer and order in one transaction
+        # Create a customer, then an order referencing it via "@1"
         batch_execute(operations=[
             {
                 "model": "res.partner",
@@ -791,93 +858,90 @@ def batch_execute(
             {
                 "model": "sale.order",
                 "method": "create",
-                "args_json": '[{"partner_id": 123, "order_line": [...]}]'
+                "args_json": '[{"partner_id": "@1"}]'
             }
-        ], atomic=True)
+        ])
 
     Returns:
-        BatchExecuteResponse with results for each operation
+        BatchExecuteResponse with per-operation results. `rolled_back` is
+        always False.
     """
-    odoo = ctx.request_context.lifespan_context.odoo
-    results = []
+    odoo = _odoo_from(ctx)
+
+    if atomic is not None:
+        print(
+            "⚠️  batch_execute: 'atomic' is deprecated — it never provided "
+            "rollback. Use 'stop_on_error'.",
+            file=sys.stderr,
+        )
+        stop_on_error = atomic
+
+    results: List[Dict[str, Any]] = []
+    op_results: List[Any] = []  # one entry per operation, for "@N" resolution
     successful = 0
     failed = 0
 
-    try:
-        for idx, op in enumerate(operations):
-            try:
-                model = op.get('model')
-                method = op.get('method')
-                args_json = op.get('args_json')
-                kwargs_json = op.get('kwargs_json')
-                args_direct = op.get('args')
-                kwargs_direct = op.get('kwargs')
+    for idx, op in enumerate(operations):
+        try:
+            model = op.get("model")
+            method = op.get("method")
+            if not model or not method:
+                raise ValueError(f"Operation {idx}: 'model' and 'method' are required")
 
-                if not model or not method:
-                    raise ValueError(f"Operation {idx}: 'model' and 'method' are required")
+            args = _batch_argument(
+                op.get("args_json"), op.get("args"), list, [], "args", idx
+            )
+            kwargs = _batch_argument(
+                op.get("kwargs_json"), op.get("kwargs"), dict, {}, "kwargs", idx
+            )
 
-                # Parse arguments - support both JSON strings and direct objects
-                if args_json:
-                    args = json.loads(args_json) if isinstance(args_json, str) else args_json
-                elif args_direct is not None:
-                    args = args_direct
-                else:
-                    args = []
+            # Resolve "@N" references against earlier results
+            args = substitute_references(args, op_results)
+            kwargs = substitute_references(kwargs, op_results)
 
-                if kwargs_json:
-                    kwargs = json.loads(kwargs_json) if isinstance(kwargs_json, str) else kwargs_json
-                elif kwargs_direct is not None:
-                    kwargs = kwargs_direct
-                else:
-                    kwargs = {}
+            # Same guardrails as execute_method
+            args, kwargs = _prepare_call(method, args, kwargs)
 
-                # Execute the operation
-                result = odoo.execute_method(model, method, *args, **kwargs)
+            result = odoo.execute_method(model, method, *args, **kwargs)
 
-                results.append({
-                    "operation_index": idx,
-                    "success": True,
-                    "result": result
-                })
-                successful += 1
+            for warning in warn_large_result(result):
+                print(f"⚠️  {warning}", file=sys.stderr)
 
-            except Exception as e:
-                results.append({
-                    "operation_index": idx,
-                    "success": False,
-                    "error": str(e)
-                })
-                failed += 1
+            op_results.append(result)
+            results.append({"operation_index": idx, "success": True, "result": result})
+            successful += 1
 
-                # If atomic, fail fast
-                if atomic:
-                    return BatchExecuteResponse(
-                        success=False,
-                        results=results,
-                        total_operations=len(operations),
-                        successful_operations=successful,
-                        failed_operations=failed,
-                        error=f"Batch failed at operation {idx}: {str(e)} (atomic mode - no operations committed)"
-                    )
+        except Exception as e:
+            op_results.append(FAILED)
+            results.append({"operation_index": idx, "success": False, "error": str(e)})
+            failed += 1
 
-        return BatchExecuteResponse(
-            success=(failed == 0),
-            results=results,
-            total_operations=len(operations),
-            successful_operations=successful,
-            failed_operations=failed,
-            error=None if failed == 0 else f"{failed} operations failed"
-        )
+            if stop_on_error:
+                return BatchExecuteResponse(
+                    success=False,
+                    results=results,
+                    total_operations=len(operations),
+                    successful_operations=successful,
+                    failed_operations=failed,
+                    rolled_back=False,
+                    error=(
+                        f"Batch stopped at operation {idx}: {e}. "
+                        f"{successful} earlier operation(s) were already "
+                        f"committed to Odoo and were NOT rolled back."
+                    ),
+                )
 
-    except Exception as e:
-        return BatchExecuteResponse(
-            success=False,
-            results=results,
-            total_operations=len(operations),
-            successful_operations=successful,
-            failed_operations=failed,
-            error=f"Batch execution failed: {str(e)}"
-        )
+    return BatchExecuteResponse(
+        success=(failed == 0),
+        results=results,
+        total_operations=len(operations),
+        successful_operations=successful,
+        failed_operations=failed,
+        rolled_back=False,
+        error=(
+            None if failed == 0 else f"{failed} of {len(operations)} operations failed"
+        ),
+    )
 
 
 @mcp.tool(
@@ -905,9 +969,7 @@ def add_cookbook_pattern(
         return {
             "success": False,
             "error": "COOKBOOK.md not found",
-            "searched_paths": [
-                str(p) for p in _cookbook.default_cookbook_paths()
-            ],
+            "searched_paths": [str(p) for p in _cookbook.default_cookbook_paths()],
         }
     return _cookbook.add_pattern(
         cookbook_path,
@@ -924,10 +986,7 @@ def add_cookbook_pattern(
 
 
 @mcp.prompt(name="search-customers")
-def search_customers_prompt(
-    city: str = "",
-    country: str = ""
-) -> List[Dict[str, str]]:
+def search_customers_prompt(city: str = "", country: str = "") -> List[Dict[str, str]]:
     """Search for customers with optional location filters"""
     filter_desc = []
     if city:
@@ -957,15 +1016,13 @@ execute_method(
 )
 
 Check odoo://model/res.partner/schema for all available fields.
-"""
+""",
         }
     ]
 
 
 @mcp.prompt(name="create-sales-order")
-def create_sales_order_prompt(
-    customer_id: int = 0
-) -> List[Dict[str, str]]:
+def create_sales_order_prompt(customer_id: int = 0) -> List[Dict[str, str]]:
     """Create a sales order in Odoo"""
     return [
         {
@@ -982,7 +1039,7 @@ Check schemas:
 - odoo://model/sale.order.line/schema for order lines
 
 See odoo://workflows for complete sales workflow.
-"""
+""",
         }
     ]
 
@@ -1005,6 +1062,6 @@ Provide summary of:
 - Available workflows
 - My permissions
 - 3-5 suggested tasks
-"""
+""",
         }
     ]

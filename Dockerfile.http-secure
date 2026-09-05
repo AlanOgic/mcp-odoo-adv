@@ -1,0 +1,30 @@
+# Odoo MCP Server — Streamable HTTP transport WITH Bearer authentication
+# Build: docker build -t alanogic/mcp-odoo-adv:http-secure -f Dockerfile.http-secure .
+# Run:   docker run -p 8008:8008 --env-file .env \
+#          -e MCP_BEARER_TOKEN="$(openssl rand -hex 32)" \
+#          alanogic/mcp-odoo-adv:http-secure
+#
+# This is the recommended image when the server must be reachable over a
+# network. MCP_BEARER_TOKEN is REQUIRED — the runner exits at startup without
+# it. Every MCP message is checked with a constant-time comparison.
+#
+# Binding to 0.0.0.0 is the default here (and safe) precisely because auth is
+# mandatory. Terminate TLS in front of it; see nginx.conf.example.
+
+ARG PYTHON_VERSION=3.13
+FROM python:${PYTHON_VERSION}-slim
+
+WORKDIR /app
+
+COPY pyproject.toml README.md ./
+RUN pip install --no-cache-dir "fastmcp[cli]>=2.12.0" requests python-dotenv
+
+COPY src/ ./src/
+RUN pip install --no-cache-dir -e .
+
+RUN mkdir -p /app/logs && chmod 777 /app/logs
+
+EXPOSE 8008
+ENV PYTHONUNBUFFERED=1
+
+ENTRYPOINT ["odoo-mcp-http-secure"]

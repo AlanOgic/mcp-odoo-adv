@@ -1,9 +1,61 @@
+# Production stack.
+#
+# Only the authenticated transport is published to the network. The two
+# unauthenticated runners are bound to the host loopback so they stay
+# reachable for local debugging without exposing full Odoo read/write access
+# to anything that can route to this host. (Docker publishes to all
+# interfaces by default and its iptables rules bypass ufw/firewalld, so the
+# explicit 127.0.0.1 prefix matters.)
+#
+# MCP_HOST=0.0.0.0 below binds the process inside its own container namespace;
+# what limits exposure is the host side of the port mapping.
+
 services:
+  # ---- Published: Streamable HTTP + Bearer auth -------------------------
+  odoo-mcp-http-secure:
+    image: alanogic/mcp-odoo-adv:http-secure
+    env_file: .env
+    environment:
+      # REQUIRED. Generate with: openssl rand -hex 32
+      MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN:?MCP_BEARER_TOKEN must be set}
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8008
+    ports:
+      - "8008:8008"
+    volumes:
+      - logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket,sys; s=socket.socket(); s.settimeout(2); s.connect(('127.0.0.1',8008)); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - odoo-mcp-network
+
+  # ---- Loopback only: SSE, NO authentication ----------------------------
   odoo-mcp-sse:
     image: alanogic/mcp-odoo-adv:sse
     env_file: .env
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8009
     ports:
-      - "8009:8009"
+      - "127.0.0.1:8009:8009"
     volumes:
       - logs:/app/logs
     restart: unless-stopped
@@ -29,11 +81,15 @@ services:
     networks:
       - odoo-mcp-network
 
+  # ---- Loopback only: Streamable HTTP, NO authentication ----------------
   odoo-mcp-http:
     image: alanogic/mcp-odoo-adv:http
     env_file: .env
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8008
     ports:
-      - "8008:8008"
+      - "127.0.0.1:8018:8008"
     volumes:
       - logs:/app/logs
     restart: unless-stopped

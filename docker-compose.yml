@@ -1,3 +1,8 @@
+# Local development stack. Both transports here are UNAUTHENTICATED, so the
+# published ports are bound to the host loopback. For anything reachable over
+# a network use docker-compose.prod.yml, which publishes only the Bearer-auth
+# service.
+
 services:
   # SSE Transport (Web Browsers)
   odoo-mcp-sse:
@@ -7,8 +12,13 @@ services:
       args:
         PYTHON_VERSION: 3.13
     env_file: .env
+    environment:
+      # Bind inside the container namespace; the host side of the mapping
+      # below is what keeps this unauthenticated port off the network.
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8009
     ports:
-      - "8009:8009"
+      - "127.0.0.1:8009:8009"
     volumes:
       # Logs directory (writable)
       - ./logs/sse:/app/logs
@@ -45,8 +55,11 @@ services:
       args:
         PYTHON_VERSION: 3.13
     env_file: .env
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8008
     ports:
-      - "8008:8008"
+      - "127.0.0.1:8008:8008"
     volumes:
       # Logs directory (writable)
       - ./logs/http:/app/logs

@@ -13,7 +13,7 @@ An advanced MCP (Model Context Protocol) server for Odoo ERP — STDIO, SSE, and
 Connect AI assistants to Odoo with **two universal tools** plus a self-improving knowledge base:
 
 1. **`execute_method`** — call any Odoo method on any model
-2. **`batch_execute`** — execute multiple operations atomically (with `@N` result references)
+2. **`batch_execute`** — run multiple operations in sequence (with `@N` result references); not atomic
 3. **`add_cookbook_pattern`** — document hard-won recipes after ≥4 failed attempts
 
 Plus 11 discovery resources, 3 prompts, and an `odoo://cookbook/patterns` resource that surfaces past lessons. No specialized tools, no validation layer, no artificial limits — full Odoo API.
@@ -261,9 +261,17 @@ execute_method(
 )
 ```
 
-### 2. batch_execute - Atomic Transactions
+### 2. batch_execute - Sequenced Operations
 
-Execute multiple operations atomically. All succeed or all rollback. Use `"@N"` (1-indexed) inside `args_json` to reference a previous operation's result.
+Run several operations in order, passing results between them. Use `"@N"`
+(1-indexed) anywhere in `args_json`/`kwargs_json` to reference the result of
+operation N.
+
+> **Not a transaction.** Odoo commits each operation independently, so this
+> server cannot roll back. `stop_on_error=True` (the default) halts at the
+> first failure; operations that already succeeded stay committed. If you need
+> true all-or-nothing behaviour, write an Odoo-side method that performs the
+> whole unit of work and call it with `execute_method`.
 
 ```python
 batch_execute(
@@ -273,9 +281,9 @@ batch_execute(
         {"model": "sale.order", "method": "create",
          "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 5, "product_uom_qty": 1}]]}]'},
         {"model": "sale.order", "method": "action_confirm",
-         "args_json": '[[@2]]'}
+         "args_json": '[["@2"]]'}
     ],
-    atomic=True
+    stop_on_error=True
 )
 ```
 
@@ -349,7 +357,7 @@ Eight skills ship in [`.claude/skills/`](./.claude/skills/) and auto-activate on
 - `odoo-mcp-crud` — create/write/unlink, archive vs delete
 - `odoo-mcp-relationships` — m2o/o2m/m2m command tuples
 - `odoo-mcp-workflows` — `action_confirm`, `action_post`, `button_validate`
-- `odoo-mcp-batch` — atomic transactions with `@N` references
+- `odoo-mcp-batch` — sequenced multi-step operations with `@N` references
 - `odoo-mcp-real-world` — HR/CRM/inventory cross-model recipes
 - `odoo-mcp-learned-patterns` — cookbook read/write workflow
 
@@ -401,7 +409,7 @@ batch_execute(
             "args_json": '[{"partner_id": 123, "order_line": [[0, 0, {"product_id": 5}]]}]'
         }
     ],
-    atomic=True
+    stop_on_error=True
 )
 ```
 

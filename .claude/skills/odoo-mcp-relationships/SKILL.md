@@ -35,7 +35,7 @@ The parent owns the children. Commands are tuples `(op, id, vals)` in a list:
 | `[5]` | Unlink all children |
 | `[6, 0, [ids]]` | Replace list with these children |
 
-**Create sale.order with 3 lines atomically:**
+**Create sale.order with 3 lines in one call:**
 ```python
 execute_method(
     model="sale.order",

@@ -63,7 +63,7 @@ for record_id, new_name in updates:
     )
 ```
 
-Or atomically via `batch_execute` (see odoo-mcp-batch skill).
+Or as one sequenced call via `batch_execute` — note it is not atomic (see odoo-mcp-batch skill).
 
 ## Delete (`unlink`) — destructive
 

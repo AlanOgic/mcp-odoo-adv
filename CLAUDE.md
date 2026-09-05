@@ -124,30 +124,57 @@ HTTP_PROXY=http://proxy.com      # HTTP proxy for Odoo connection
 mcp-odoo-adv/
 ├── src/odoo_mcp/
 │   ├── __init__.py              # Package initialization
-│   ├── __main__.py              # CLI entry point (odoo-mcp command)
-│   ├── server.py                # MCP server (800+ lines)
+│   ├── __main__.py              # STDIO entry point (odoo-mcp command)
+│   ├── server.py                # MCP server (1000+ lines)
 │   │   ├── Tools: execute_method, batch_execute
-│   │   ├── Resources: discovery resources
+│   │   ├── Resources: discovery resources + cookbook
 │   │   ├── Prompts: user-facing templates
-│   │   └── Smart Limits: Automatic data size protection
-│   └── odoo_client.py           # Odoo API client (500+ lines)
-│       ├── JSON-2 API support (Bearer token)
-│       ├── JSON-RPC fallback (legacy)
-│       └── Session management
-├── run_server.py                # STDIO runner (enhanced logging)
-├── run_server_sse.py            # SSE runner (port 8009)
-├── run_server_http.py           # HTTP runner (port 8008)
+│   │   └── Composes the domain/limits/cookbook modules below
+│   ├── odoo_client.py           # Odoo API client (JSON-RPC + JSON-2)
+│   ├── domain.py                # Search-domain normalization (pure)
+│   ├── limits.py                # Smart-limit policy (pure, no logging)
+│   ├── cookbook.py              # Read/write COOKBOOK Learned Patterns
+│   ├── logging_util.py          # Shared logging helpers for runners
+│   └── runners/                 # Transport runners (one main() each)
+│       ├── __init__.py
+│       ├── http.py              # Streamable HTTP, 127.0.0.1:8008, NO auth
+│       ├── http_secure.py       # Streamable HTTP + Bearer token auth
+│       └── sse.py               # SSE, 127.0.0.1:8009, NO auth
+├── .claude/skills/              # 8 Claude Code skills covering the cookbook
 ├── pyproject.toml               # Package config (setuptools, Python 3.10+)
 ├── fastmcp.json                 # MCP metadata
+├── Dockerfile                   # STDIO image
+├── Dockerfile.http              # HTTP image
+├── Dockerfile.sse               # SSE image
+├── docker-compose.yml           # Local compose stack
+├── docker-compose.prod.yml      # Production compose stack
+├── nginx.conf.example           # Reverse-proxy sample
+├── .env.example                 # Environment template
+├── odoo_config.json.example     # JSON config template
 ├── README.md                    # User documentation
-├── COOKBOOK.md                  # 40+ usage examples for your personal knowledge
+├── AGENTS.md                    # Agent-facing repo guide
+├── COOKBOOK.md                  # Usage examples + Learned Patterns
 ├── USER_GUIDE.md                # Setup guide
 ├── CHANGELOG.md                 # Version history
+├── SECURITY.md                  # Security policy
+├── LICENSE                      # GPL-3.0-or-later
+├── NOTICE                       # Attribution
 └── DOCS/
-    ├── CLAUDE.md                # Detailed technical reference (850+ lines)
+    ├── CLAUDE.md                # Detailed technical reference (900+ lines)
     ├── TRANSPORTS.md            # Transport details
-    └── LICENSE                  # MIT license
+    ├── DOCKER.md                # Docker deployment
+    ├── SECURITY.md              # Security hardening guide
+    └── STREAMINGHTTP_GUIDE.md   # Streamable HTTP guide
 ```
+
+**Console scripts** (declared in `pyproject.toml`, no top-level `run_server*.py`):
+
+| Command | Target | Transport |
+|---------|--------|-----------|
+| `odoo-mcp` | `odoo_mcp.__main__:main` | STDIO |
+| `odoo-mcp-http` | `odoo_mcp.runners.http:main` | Streamable HTTP (no auth) |
+| `odoo-mcp-http-secure` | `odoo_mcp.runners.http_secure:main` | Streamable HTTP + Bearer |
+| `odoo-mcp-sse` | `odoo_mcp.runners.sse:main` | SSE (no auth) |
 
 ## Common Development Tasks
 

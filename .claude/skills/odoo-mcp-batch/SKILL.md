@@ -1,11 +1,25 @@
 ---
 name: odoo-mcp-batch
-description: Execute multiple Odoo operations atomically (all succeed or all rollback) via batch_execute. Use when an operation spans multiple records or models that must be consistent — creating customer + sale order together, moving leads through stages + logging notes, or any workflow where partial success corrupts state. Triggers on "atomic", "transaction", "all or nothing", "rollback", "batch", "multi-operation", "create and link", or whenever partial success would be worse than total failure.
+description: Run several Odoo operations in one call via batch_execute, passing results between them with @N references. Use for create-then-link sequences, multi-step workflows, and bulk updates. Note that batch_execute is NOT atomic and cannot roll back — read this skill before relying on all-or-nothing behaviour. Triggers on "batch", "multi-operation", "create and link", "atomic", "transaction", "all or nothing", "rollback".
 ---
 
-# Odoo MCP — Atomic batch operations
+# Odoo MCP — Batch operations
 
-`batch_execute` runs a list of operations in a single transaction. Default mode is atomic: if any operation fails, all previous ones roll back. Use when records must be consistent across steps.
+`batch_execute` runs a list of operations in order and lets each one reference
+earlier results.
+
+## ⚠️ It is not atomic
+
+Despite the historical `atomic=` parameter name, **there is no rollback**. Odoo
+commits each operation as its own transaction, so anything that already
+succeeded stays in the database when a later operation fails. `stop_on_error`
+(default `True`) only stops the sequence early.
+
+If partial success would corrupt state, do **not** rely on this tool to undo
+things. Either:
+- write an Odoo-side method that performs the whole unit of work and call it
+  with a single `execute_method`, or
+- check `successful_operations` in the response and compensate manually.
 
 ## Universal shape
 
@@ -15,7 +29,7 @@ batch_execute(
         {"model": "res.partner", "method": "create", "args_json": '[{"name": "New Co"}]'},
         {"model": "sale.order", "method": "create", "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 101, "product_uom_qty": 1}]]}]'}
     ],
-    atomic=True
+    stop_on_error=True
 )
 ```
 
@@ -26,7 +40,8 @@ Response:
     "results": [{"success": True, "result": 42}, {"success": True, "result": 1337}],
     "total_operations": 2,
     "successful_operations": 2,
-    "failed_operations": 0
+    "failed_operations": 0,
+    "rolled_back": False        # always False — see the warning above
 }
 ```
 
@@ -40,19 +55,22 @@ operations=[
     # @1 = partner id from step 1
     {"model": "sale.order", "method": "create", "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 101, "product_uom_qty": 2}]]}]'},
     # @2 = order id from step 2
-    {"model": "sale.order", "method": "action_confirm", "args_json": '[[@2]]'}
+    {"model": "sale.order", "method": "action_confirm", "args_json": '[["@2"]]'}
 ]
 ```
 
-## Atomic vs non-atomic
+## Stop-on-error vs continue
 
-**Atomic (default, `atomic=True`):**
-- Any failure → all previous operations rolled back
-- Use for: create + link, multi-step workflows, state transitions
+**`stop_on_error=True` (default):**
+- First failure halts the sequence; later operations are never attempted
+- Earlier successes remain committed — the response tells you how many
+- Use for: create + link chains, where continuing would compound the mess
 
-**Non-atomic (`atomic=False`):**
-- Each operation stands alone; failures don't affect siblings
-- Use for: bulk imports where partial success is OK, parallel-like updates, reporting
+**`stop_on_error=False`:**
+- Every operation is attempted; failures are reported per item
+- Use for: bulk imports where partial success is fine, independent updates
+
+`atomic=` is accepted as a deprecated alias for `stop_on_error=`.
 
 ```python
 # Bulk tag update — one failure shouldn't block the rest
@@ -62,7 +80,7 @@ batch_execute(
         {"model": "res.partner", "method": "write", "args_json": '[[2], {"category_id": [[4, 5]]}]'},
         {"model": "res.partner", "method": "write", "args_json": '[[3], {"category_id": [[4, 5]]}]'},
     ],
-    atomic=False
+    stop_on_error=False
 )
 ```
 
@@ -79,7 +97,7 @@ batch_execute(
         {"model": "sale.order", "method": "action_confirm",
          "args_json": '[[@2]]'},
     ],
-    atomic=True
+    stop_on_error=True
 )
 ```
 
@@ -95,7 +113,7 @@ batch_execute(
          "kwargs_json": f'{{"context": {{"active_model": "account.move", "active_ids": [{invoice_id}]}}}}'},
         {"model": "account.payment.register", "method": "action_create_payments", "args_json": '[[@2]]'}
     ],
-    atomic=True
+    stop_on_error=True
 )
 ```
 
@@ -112,7 +130,7 @@ batch_execute(
          "args_json": f'[[{lead_id}]]',
          "kwargs_json": '{"partner_ids": [42]}'}
     ],
-    atomic=True
+    stop_on_error=True
 )
 ```
 
@@ -124,7 +142,7 @@ batch_execute(
 
 ## Error messages
 
-When atomic fails, the response tells you which operation failed:
+When an operation fails, the response tells you which one — and how many earlier operations were already committed:
 
 ```python
 {

@@ -7,7 +7,7 @@ This file is the quick reference for AI assistants (Claude, Cursor, ChatGPT-via-
 | Surface | Count | Purpose |
 |---|---|---|
 | **Tools** | 3 | `execute_method`, `batch_execute`, `add_cookbook_pattern` |
-| **Resources** | 11 | discovery (`odoo://models`, `odoo://model/{m}/schema`, …) + `odoo://cookbook/patterns` |
+| **Resources** | 8 | discovery (`odoo://models`, `odoo://model/{m}/schema`, …) + `odoo://cookbook/patterns` |
 | **Prompts** | 3 | `search-customers`, `create-sales-order`, `odoo-exploration` |
 
 You don't need a tool per Odoo operation. `execute_method` lets you call **any** method on **any** model — that's the entire Odoo ORM.
@@ -30,9 +30,11 @@ execute_method(
 
 Every response is `{"success": bool, "result": ...}` or `{"success": False, "error": "..."}`. Always check `success` before touching `result`.
 
-### `batch_execute(operations, atomic=True)`
+### `batch_execute(operations, stop_on_error=True)`
 
-Run multiple operations in one transaction. Use `@N` to reference a previous operation's result (1-indexed).
+Run multiple operations in order. Use `@N` to reference a previous operation's result (1-indexed) anywhere in `args_json`/`kwargs_json`.
+
+**This is not a transaction.** Odoo commits each operation independently and this server cannot roll back.
 
 ```python
 batch_execute(
@@ -42,13 +44,22 @@ batch_execute(
         {"model": "sale.order", "method": "create",
          "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 5, "product_uom_qty": 1}]]}]'},
         {"model": "sale.order", "method": "action_confirm",
-         "args_json": '[[@2]]'}
+         "args_json": '[["@2"]]'}
     ],
-    atomic=True
+    stop_on_error=True
 )
 ```
 
-If any step fails with `atomic=True`, all previous steps roll back.
+If a step fails with `stop_on_error=True` (default), the batch halts there —
+but every operation that already succeeded **stays committed**. Nothing is
+undone. Check `successful_operations` in the response to see what landed, and
+clean up yourself if the partial state is wrong. `rolled_back` is always
+`False`; it exists to make that explicit.
+
+For genuine all-or-nothing work, write an Odoo-side method that does the whole
+unit of work and call it with `execute_method`.
+
+`atomic=` is still accepted as a deprecated alias for `stop_on_error=`.
 
 ## Discovery resources
 
@@ -156,7 +167,7 @@ Eight Claude Code skills ship in `.claude/skills/` and auto-activate on relevant
 - `odoo-mcp-crud` — create/write/unlink, archive vs delete
 - `odoo-mcp-relationships` — m2o/o2m/m2m command tuples
 - `odoo-mcp-workflows` — action_confirm, action_post, button_validate
-- `odoo-mcp-batch` — atomic transactions with `@N` references
+- `odoo-mcp-batch` — sequenced multi-step operations with `@N` references
 - `odoo-mcp-real-world` — HR/CRM/inventory cross-model recipes
 - `odoo-mcp-learned-patterns` — cookbook read/write workflow
 

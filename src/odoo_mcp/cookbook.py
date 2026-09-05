@@ -8,6 +8,7 @@ new patterns once they finally succeed.
 Pure functions — no logging side effects. The MCP wrappers in
 ``odoo_mcp.server`` translate the dict results into JSON envelopes.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -75,9 +76,7 @@ def read_patterns(cookbook_path: Path) -> dict[str, Any]:
 
     # Stop at the next top-level heading (## ...) or end of file.
     next_section = content.find("\n## ", start + 1)
-    section = (
-        content[start:next_section] if next_section != -1 else content[start:]
-    )
+    section = content[start:next_section] if next_section != -1 else content[start:]
 
     return {
         "found": True,

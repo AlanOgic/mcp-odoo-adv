@@ -4,7 +4,8 @@
 #
 # NOTE: this image runs the UNAUTHENTICATED HTTP runner. The process binds
 # to 127.0.0.1 by default — set MCP_HOST=0.0.0.0 only when behind an auth
-# layer (nginx + token), or use Dockerfile.http-secure for built-in Bearer auth.
+# layer (nginx + token), or use Dockerfile.http-secure for built-in Bearer auth
+# (that image is the recommended way to expose this server on a network).
 
 ARG PYTHON_VERSION=3.13
 FROM python:${PYTHON_VERSION}-slim

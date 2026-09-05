@@ -1,4 +1,5 @@
 """Tests for ``odoo_mcp.limits`` smart-limit policy."""
+
 from __future__ import annotations
 
 import pytest
@@ -64,9 +65,7 @@ class TestApplyLimitsUnlimited:
 
 class TestApplyLimitsOverMax:
     def test_over_max_is_capped(self) -> None:
-        new_kwargs, warnings = apply_limits(
-            "search_read", {"limit": MAX_LIMIT + 5000}
-        )
+        new_kwargs, warnings = apply_limits("search_read", {"limit": MAX_LIMIT + 5000})
         assert new_kwargs["limit"] == MAX_LIMIT
         assert len(warnings) == 1
         assert "capping" in warnings[0].lower() or "cap" in warnings[0].lower()

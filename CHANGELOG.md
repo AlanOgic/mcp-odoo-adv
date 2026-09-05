@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed (BREAKING BEHAVIOUR CORRECTION)
+
+- **`batch_execute` was never atomic.** It was documented as "all succeed or
+  all rollback", but each operation is an independent Odoo call committed in
+  its own transaction — no rollback ever existed. On failure it even reported
+  "no operations committed", which was false. The behaviour is unchanged
+  (fail-fast); the documentation, tool description, and error message now tell
+  the truth. Responses gained `rolled_back`, which is always `False`.
+  Use an Odoo-side method for genuine all-or-nothing work.
+- **`atomic=` renamed to `stop_on_error=`** to match what it actually does.
+  `atomic=` still works as a deprecated alias and logs a warning.
+- **`@N` result references now work.** They were documented in README.md and
+  AGENTS.md but never implemented; `"@1"` was passed to Odoo as a literal
+  string. Substitution is implemented in the new `odoo_mcp.batch` module and
+  resolves anywhere in an operation's args/kwargs. Referencing `@0`, a future
+  operation, or a failed operation is now an explicit error.
+- **`batch_execute` now applies the same guardrails as `execute_method`** —
+  domain normalization and the smart-limit policy, which it previously
+  bypassed entirely. Shared via a new `_prepare_call` helper.
+- Documented example `'[[@2]]'` was invalid JSON; corrected to `'[["@2"]]'`.
+
+### Security
+
+- `.env.example` claimed `MCP_HOST` defaults to `0.0.0.0` "for all
+  interfaces". The real default is `127.0.0.1`, and the SSE/HTTP runners have
+  no authentication — following the example published unauthenticated Odoo
+  read/write access. Corrected, with the auth alternative called out.
+- Added `Dockerfile.http-secure`. It was referenced by `Dockerfile.http` but
+  had never existed, leaving the Bearer-auth runner with no container path.
+- `docker-compose.prod.yml` published both unauthenticated transports on all
+  host interfaces. It now publishes only the Bearer-auth service; the no-auth
+  runners are bound to `127.0.0.1`. Same loopback binding applied to
+  `docker-compose.yml`.
+
+### Added
+
+- `tests/test_batch.py` — 26 tests covering reference substitution, batch
+  failure honesty, and the newly-applied guardrails.
+- CI workflow running black, isort, ruff, mypy, and pytest.
+
 ## [1.0.0-beta] - 2025-01-07
 
 ### 🎯 Philosophy Change: Radical Simplification

@@ -621,7 +621,7 @@ batch_execute(
             "args_json": '[{"partner_id": 8, "order_line": [[0, 0, {"product_id": 5, "product_uom_qty": 1}]]}]'
         }
     ],
-    atomic=True
+    stop_on_error=True
 )
 ```
 
@@ -646,7 +646,7 @@ batch_execute(
             "args_json": '[[5]]'
         }
     ],
-    atomic=False  # Continue even if one fails
+    stop_on_error=False  # Continue even if one fails
 )
 ```
 
@@ -662,7 +662,7 @@ batch_execute(
         }
         for i in range(1, 51)  # Create 50 partners
     ],
-    atomic=False
+    stop_on_error=False
 )
 ```
 
@@ -979,10 +979,11 @@ execute_method(model="res.partner", method="search_read",
                kwargs_json='{"fields": ["name", "email"]}')
 ```
 
-### 4. Use batch_execute for Atomic Operations
+### 4. Use batch_execute to Sequence Related Operations
 ```python
-# ✅ Both succeed or both fail
-batch_execute(operations=[...], atomic=True)
+# ✅ Runs in order, stops at the first failure.
+# ⚠️ NOT atomic — earlier operations stay committed. Nothing is rolled back.
+batch_execute(operations=[...], stop_on_error=True)
 ```
 
 ### 5. Limit Your Queries

@@ -43,6 +43,7 @@ dev = [
     "twine",
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "types-requests",
 ]
 
 [tool.pytest.ini_options]
@@ -72,9 +73,23 @@ target-version = ["py310", "py311", "py312", "py313"]
 profile = "black"
 line_length = 88
 
+[tool.ruff]
+# Pinned explicitly: ruff's default rule set changes between releases, so
+# without this the gate passes or fails depending on which version is installed.
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]  # pycodestyle, pyflakes, import sorting
+ignore = ["E501"]              # line length is black's job
+
 [tool.mypy]
 python_version = "3.12"  # Minimum version for compatibility checking
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = ["fastmcp.*"]
+ignore_missing_imports = true

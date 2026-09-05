@@ -221,7 +221,7 @@ Claude should respond with your Odoo version and installed modules. You're conne
 This MCP server provides just two tools:
 
 1. **`execute_method`** - Calls any Odoo method on any model
-2. **`batch_execute`** - Executes multiple operations atomically
+2. **`batch_execute`** - Runs multiple operations in sequence (not atomic; no rollback)
 
 That's it. No specialized tools needed—you have full Odoo API access.
 

@@ -1,4 +1,5 @@
 """Command-line entry point for the Odoo MCP Server (STDIO transport)."""
+
 from __future__ import annotations
 
 import os

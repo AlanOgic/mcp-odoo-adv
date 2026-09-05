@@ -1,4 +1,5 @@
 """Tests for ``odoo_mcp.cookbook`` (read/write Learned Patterns)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,7 +12,6 @@ from odoo_mcp.cookbook import (
     find_cookbook,
     read_patterns,
 )
-
 
 # ---- read_patterns ---------------------------------------------------------
 
@@ -148,14 +148,12 @@ class TestAddPatternValidation:
 
 
 class TestAddPatternContent:
-    def test_inserts_before_how_to_use_marker(
-        self, cookbook_with_marker: Path
-    ) -> None:
+    def test_inserts_before_how_to_use_marker(self, cookbook_with_marker: Path) -> None:
         add_pattern(
             cookbook_with_marker,
             problem="Search m2m fields",
             failed_approaches=_four_approaches(),
-            working_solution='execute_method(...)',
+            working_solution="execute_method(...)",
             why_it_works="m2m needs in operator",
             key_lesson="Use in for many2many",
         )
@@ -194,9 +192,7 @@ class TestAddPatternContent:
         )
         assert "**Related**:" not in cookbook_with_marker.read_text()
 
-    def test_includes_related_when_provided(
-        self, cookbook_with_marker: Path
-    ) -> None:
+    def test_includes_related_when_provided(self, cookbook_with_marker: Path) -> None:
         add_pattern(
             cookbook_with_marker,
             problem="X",
@@ -209,9 +205,7 @@ class TestAddPatternContent:
         text = cookbook_with_marker.read_text()
         assert "**Related**: https://example.com/docs" in text
 
-    def test_preserves_content_after_marker(
-        self, cookbook_with_marker: Path
-    ) -> None:
+    def test_preserves_content_after_marker(self, cookbook_with_marker: Path) -> None:
         add_pattern(
             cookbook_with_marker,
             problem="X",

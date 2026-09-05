@@ -4,11 +4,11 @@ Odoo JSON-RPC client for MCP server integration
 
 import json
 import os
-import sys
 import re
+import sys
 import urllib.parse
 from functools import lru_cache
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import requests
 from dotenv import load_dotenv
@@ -19,15 +19,15 @@ class OdooClient:
 
     def __init__(
         self,
-        url,
-        db,
-        username,
-        password=None,
-        api_key=None,
-        api_version="json-rpc",
-        timeout=30,
-        verify_ssl=True,
-    ):
+        url: str,
+        db: str,
+        username: str,
+        password: Optional[str] = None,
+        api_key: Optional[str] = None,
+        api_version: str = "json-rpc",
+        timeout: int = 30,
+        verify_ssl: bool = True,
+    ) -> None:
         """
         Initialize the Odoo client with connection parameters
 
@@ -80,9 +80,9 @@ class OdooClient:
 
         # Configure headers for JSON-2 API
         if api_version == "json-2":
-            self.session.headers['Authorization'] = f'Bearer {api_key}'
-            self.session.headers['X-Odoo-Database'] = db
-            self.session.headers['Content-Type'] = 'application/json'
+            self.session.headers["Authorization"] = f"Bearer {api_key}"
+            self.session.headers["X-Odoo-Database"] = db
+            self.session.headers["Content-Type"] = "application/json"
 
         # HTTP proxy support
         proxy = os.environ.get("HTTP_PROXY")
@@ -106,7 +106,7 @@ class OdooClient:
         if api_version == "json-rpc":
             self._connect()
 
-    def _jsonrpc_call(self, service: str, method: str, *args) -> Any:
+    def _jsonrpc_call(self, service: str, method: str, *args: Any) -> Any:
         """
         Make a JSON-RPC 1.x call to Odoo
 
@@ -123,12 +123,8 @@ class OdooClient:
         payload = {
             "jsonrpc": "1.0",
             "method": "call",
-            "params": {
-                "service": service,
-                "method": method,
-                "args": list(args)
-            },
-            "id": self._request_id
+            "params": {"service": service, "method": method, "args": list(args)},
+            "id": self._request_id,
         }
 
         try:
@@ -136,7 +132,7 @@ class OdooClient:
                 self.jsonrpc_url,
                 json=payload,
                 timeout=self.timeout,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
             response.raise_for_status()
 
@@ -156,7 +152,7 @@ class OdooClient:
         except requests.exceptions.RequestException as e:
             raise ValueError(f"Request failed: {str(e)}")
 
-    def _connect(self):
+    def _connect(self) -> None:
         """Initialize the JSON-RPC connection and authenticate"""
         print(f"Connecting to Odoo at: {self.url}", file=sys.stderr)
         print(f"  Hostname: {self.hostname}", file=sys.stderr)
@@ -187,22 +183,18 @@ class OdooClient:
             print(f"Authentication error: {str(e)}", file=sys.stderr)
             raise ValueError(f"Failed to authenticate with Odoo: {str(e)}")
 
-    def _execute(self, model, method, *args, **kwargs):
+    def _execute(self, model: str, method: str, *args: Any, **kwargs: Any) -> Any:
         """Execute a method on an Odoo model using JSON-RPC or JSON-2 API"""
         if self.api_version == "json-2":
             # JSON-2 API format
             url = f"{self.json2_base_url}/{model}/{method}"
             payload = {
                 "args": list(args) if args else [],
-                "kwargs": kwargs if kwargs else {}
+                "kwargs": kwargs if kwargs else {},
             }
 
             try:
-                response = self.session.post(
-                    url,
-                    json=payload,
-                    timeout=self.timeout
-                )
+                response = self.session.post(url, json=payload, timeout=self.timeout)
                 response.raise_for_status()
                 return response.json()
 
@@ -215,12 +207,18 @@ class OdooClient:
         else:
             # JSON-RPC format (legacy)
             return self._jsonrpc_call(
-                "object", "execute_kw",
-                self.db, self.uid, self.password,
-                model, method, args, kwargs
+                "object",
+                "execute_kw",
+                self.db,
+                self.uid,
+                self.password,
+                model,
+                method,
+                args,
+                kwargs,
             )
 
-    def execute_method(self, model, method, *args, **kwargs):
+    def execute_method(self, model: str, method: str, *args: Any, **kwargs: Any) -> Any:
         """
         Execute an arbitrary method on a model
 
@@ -235,7 +233,8 @@ class OdooClient:
         """
         return self._execute(model, method, *args, **kwargs)
 
-def load_config():
+
+def load_config() -> Dict[str, Any]:
     """
     Load Odoo configuration from .env file, environment variables, or config file
 
@@ -260,11 +259,13 @@ def load_config():
         env_paths.append(custom_env_path)
 
     # Standard paths
-    env_paths.extend([
-        ".env",  # Current directory
-        os.path.expanduser("~/.config/odoo/.env"),  # User config directory
-        os.path.expanduser("~/.env"),  # User home directory
-    ])
+    env_paths.extend(
+        [
+            ".env",  # Current directory
+            os.path.expanduser("~/.config/odoo/.env"),  # User config directory
+            os.path.expanduser("~/.env"),  # User home directory
+        ]
+    )
 
     # Try to load .env file from common locations
     for env_path in env_paths:
@@ -298,7 +299,8 @@ def load_config():
         if os.path.exists(expanded_path):
             print(f"Loading configuration from: {expanded_path}", file=sys.stderr)
             with open(expanded_path, "r") as f:
-                return json.load(f)
+                loaded: Dict[str, Any] = json.load(f)
+            return loaded
 
     raise FileNotFoundError(
         "No Odoo configuration found. Please create a .env file, set environment variables, or create an odoo_config.json file.\n"
@@ -308,7 +310,7 @@ def load_config():
 
 
 @lru_cache(maxsize=1)
-def get_odoo_client():
+def get_odoo_client() -> OdooClient:
     """
     Get the singleton Odoo client instance.
 

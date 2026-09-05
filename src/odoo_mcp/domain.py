@@ -16,6 +16,7 @@ Supported input shapes:
 Invalid conditions are dropped silently. Callers that care about strictness
 can compare input length to output length after normalization.
 """
+
 from __future__ import annotations
 
 import ast
@@ -31,11 +32,7 @@ def normalize_domain(value: Any) -> list:
         return []
 
     # Unwrap [[domain]] → [domain] one level deep
-    if (
-        isinstance(value, list)
-        and len(value) == 1
-        and isinstance(value[0], list)
-    ):
+    if isinstance(value, list) and len(value) == 1 and isinstance(value[0], list):
         value = value[0]
 
     # Parse string forms first

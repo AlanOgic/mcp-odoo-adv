@@ -10,6 +10,7 @@ Environment:
     MCP_HTTP_PATH  HTTP endpoint path (default: /mcp)
     ODOO_*         Standard Odoo credentials (see README)
 """
+
 from __future__ import annotations
 
 import os
@@ -22,8 +23,7 @@ from ..server import mcp
 def main() -> None:
     log_file = setup_file_logging("http")
     print(
-        f"[{datetime.now().isoformat()}] "
-        f"Starting Odoo MCP Server (Streamable HTTP)"
+        f"[{datetime.now().isoformat()}] " f"Starting Odoo MCP Server (Streamable HTTP)"
     )
     print(f"Logging to: {log_file}")
 
@@ -37,9 +37,7 @@ def main() -> None:
     print(f"  HTTP Path: {path}")
     print(f"  URL: http://{host}:{port}{path}")
     if host == "0.0.0.0":
-        print(
-            "  ⚠️  Bound to 0.0.0.0 with NO AUTH — place behind an auth layer."
-        )
+        print("  ⚠️  Bound to 0.0.0.0 with NO AUTH — place behind an auth layer.")
 
     mcp.run(transport="streamable-http", host=host, port=port, path=path)
 

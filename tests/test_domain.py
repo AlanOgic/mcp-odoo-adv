@@ -1,4 +1,5 @@
 """Tests for ``odoo_mcp.domain.normalize_domain``."""
+
 from __future__ import annotations
 
 import pytest
@@ -29,21 +30,15 @@ class TestCanonicalFormat:
         assert result == [["name", "=", "Acme"]]
 
     def test_multiple_triples(self) -> None:
-        result = normalize_domain(
-            [["name", "=", "Acme"], ["active", "=", True]]
-        )
+        result = normalize_domain([["name", "=", "Acme"], ["active", "=", True]])
         assert result == [["name", "=", "Acme"], ["active", "=", True]]
 
     def test_with_logic_operators(self) -> None:
-        result = normalize_domain(
-            ["|", ["name", "=", "A"], ["name", "=", "B"]]
-        )
+        result = normalize_domain(["|", ["name", "=", "A"], ["name", "=", "B"]])
         assert result == ["|", ["name", "=", "A"], ["name", "=", "B"]]
 
     def test_with_and_operator(self) -> None:
-        result = normalize_domain(
-            ["&", ["a", "=", 1], ["b", "=", 2]]
-        )
+        result = normalize_domain(["&", ["a", "=", 1], ["b", "=", 2]])
         assert result == ["&", ["a", "=", 1], ["b", "=", 2]]
 
     def test_with_not_operator(self) -> None:

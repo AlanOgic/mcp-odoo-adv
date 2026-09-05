@@ -5,6 +5,7 @@ rows) when callers forget to pass a ``limit``. Pure functions — no logging
 side effects. Callers receive a list of warning strings and emit them
 however they like.
 """
+
 from __future__ import annotations
 
 from typing import Any, Tuple
@@ -45,8 +46,7 @@ def apply_limits(
         )
     elif limit is False or limit == 0:
         warnings.append(
-            "Unlimited query requested (limit=0); "
-            "this may return massive datasets"
+            "Unlimited query requested (limit=0); " "this may return massive datasets"
         )
     elif isinstance(limit, int) and limit > MAX_LIMIT:
         warnings.append(
@@ -61,16 +61,12 @@ def apply_limits(
 def warn_large_read(args: list) -> list[str]:
     """Return a warning when a ``read(ids, fields)`` call has a huge id list."""
     if args and isinstance(args[0], list) and len(args[0]) > MAX_LIMIT:
-        return [
-            f"Reading {len(args[0])} records at once; consider batching."
-        ]
+        return [f"Reading {len(args[0])} records at once; consider batching."]
     return []
 
 
 def warn_large_result(result: Any) -> list[str]:
     """Return a warning when a result list is at or above ``MAX_LIMIT``."""
     if isinstance(result, list) and len(result) >= MAX_LIMIT:
-        return [
-            f"Large result set: {len(result)} records. Consider adding filters."
-        ]
+        return [f"Large result set: {len(result)} records. Consider adding filters."]
     return []

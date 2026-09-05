@@ -10,12 +10,14 @@ Environment:
     MCP_HTTP_PATH     HTTP endpoint path (default: /mcp)
     ODOO_*            Standard Odoo credentials (see README)
 """
+
 from __future__ import annotations
 
 import os
 import secrets
 import sys
 from datetime import datetime
+from typing import Any
 
 from fastmcp.server.middleware import Middleware
 
@@ -30,7 +32,7 @@ class BearerAuthMiddleware(Middleware):
         super().__init__()
         self._expected_token = expected_token
 
-    async def on_message(self, context, call_next):
+    async def on_message(self, context: Any, call_next: Any) -> Any:
         try:
             from fastmcp.server.dependencies import get_http_request
 

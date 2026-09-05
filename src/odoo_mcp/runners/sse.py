@@ -9,6 +9,7 @@ Environment:
     MCP_SSE_PATH  SSE endpoint path (default: /sse)
     ODOO_*        Standard Odoo credentials (see README)
 """
+
 from __future__ import annotations
 
 import os
@@ -20,10 +21,7 @@ from ..server import mcp
 
 def main() -> None:
     log_file = setup_file_logging("sse")
-    print(
-        f"[{datetime.now().isoformat()}] "
-        f"Starting Odoo MCP Server (SSE)"
-    )
+    print(f"[{datetime.now().isoformat()}] " f"Starting Odoo MCP Server (SSE)")
     print(f"Logging to: {log_file}")
 
     host = os.environ.get("MCP_HOST", "127.0.0.1")
@@ -36,9 +34,7 @@ def main() -> None:
     print(f"  SSE Path: {path}")
     print(f"  URL: http://{host}:{port}{path}")
     if host == "0.0.0.0":
-        print(
-            "  ⚠️  Bound to 0.0.0.0 with NO AUTH — place behind an auth layer."
-        )
+        print("  ⚠️  Bound to 0.0.0.0 with NO AUTH — place behind an auth layer.")
 
     mcp.run(transport="sse", host=host, port=port, path=path)
 

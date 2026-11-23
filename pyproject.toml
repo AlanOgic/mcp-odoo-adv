@@ -16,6 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
 keywords = ["odoo", "odoo 18", "odoo 19", "mcp", "odoo-mcp", "mcp server", "server", "docker", "stdio", "sse", "streaming http"]
@@ -24,7 +25,9 @@ authors = [
 ]
 
 dependencies = [
-    "fastmcp>=2.12.0",
+    # FastMCP 3.x only. The 2.x prompt return shape (list of {"role","content"}
+    # dicts) is rejected by 3.x, so a 2.x resolution would break the prompts.
+    "fastmcp>=3.2,<4",
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
 ]

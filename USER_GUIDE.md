@@ -84,7 +84,7 @@ ODOO_PASSWORD=your-password-or-api-key
 
 ```bash
 # Run the server
-python3 run_server.py
+odoo-mcp
 ```
 
 You should see:
@@ -392,7 +392,7 @@ pip install python-dotenv
 1. Restart Claude Desktop completely
 2. Verify the `cwd` path in `claude_desktop_config.json` is absolute
 3. Check Claude Desktop logs for errors
-4. Test the server independently: `python run_server.py`
+4. Test the server independently: `odoo-mcp`
 
 ---
 

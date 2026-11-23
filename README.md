@@ -16,7 +16,7 @@ Connect AI assistants to Odoo with **two universal tools** plus a self-improving
 2. **`batch_execute`** — run multiple operations in sequence (with `@N` result references); not atomic
 3. **`add_cookbook_pattern`** — document hard-won recipes after ≥4 failed attempts
 
-Plus 11 discovery resources, 3 prompts, and an `odoo://cookbook/patterns` resource that surfaces past lessons. No specialized tools, no validation layer, no artificial limits — full Odoo API.
+Plus 7 discovery resources, 3 prompts, and an `odoo://cookbook/patterns` resource that surfaces past lessons. No specialized tools, no validation layer, no artificial limits — full Odoo API.
 
 ### To rule them all. What You Can Do
 
@@ -117,11 +117,11 @@ After `pip install -e .`, four console scripts are wired up:
 # STDIO (Claude Desktop, Claude Code, Cursor)
 odoo-mcp                      # or: python -m odoo_mcp
 
-# SSE (browsers, port 8009)
-odoo-mcp-sse
-
-# Streamable HTTP (API integrations, port 8008)
+# Streamable HTTP (API integrations, browsers, port 8008)
 odoo-mcp-http
+
+# SSE (port 8009) — ⚠️ deprecated upstream, use Streamable HTTP for new work
+odoo-mcp-sse
 
 # HTTP with Bearer auth (production behind a reverse proxy)
 odoo-mcp-http-secure
@@ -324,7 +324,9 @@ The `≥4` threshold is enforced — shallow trial-and-error stays out of the co
 | `odoo://server/info` | Odoo version + installed modules |
 | `odoo://cookbook/patterns` | Learned Patterns from past sessions (read after first failure) |
 
-Plus `odoo://record/{model}/{id}`, `odoo://search/{model}/{domain}`, `odoo://fields/{model}`, `odoo://model/{model}` for one-off reads.
+Plus `odoo://record/{model}/{id}` for a one-off record read. That's the complete
+set — for a field list use `odoo://model/{model}/schema`, and to search use
+`execute_method`.
 
 ### The Cookbook
 
@@ -448,7 +450,7 @@ batch_execute(
 * **Universal Tools**: `execute_method` + `batch_execute` reach the entire Odoo API
 * **Self-improving cookbook**: `odoo://cookbook/patterns` resource + `add_cookbook_pattern` tool grow the institutional knowledge automatically
 * **Smart Limits**: Automatic protection against oversized queries (DEFAULT=100, MAX=1000)
-* **MCP 2025-06-18 spec**: Built on FastMCP 2.12+
+* **Built on FastMCP 3.x**: the MCP protocol revision is whatever FastMCP and the `mcp` SDK negotiate with your client — this server does not pin one
 
 ### Multiple Connection Options
 * **STDIO**: Direct integration with Claude Desktop

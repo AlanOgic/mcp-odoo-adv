@@ -95,13 +95,13 @@ batch_execute(
         {"model": "sale.order", "method": "create",
          "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 101, "product_uom_qty": 3}]]}]'},
         {"model": "sale.order", "method": "action_confirm",
-         "args_json": '[[@2]]'},
+         "args_json": '[["@2"]]'},
     ],
     stop_on_error=True
 )
 ```
 
-If `action_confirm` fails (credit limit, etc.), the partner and order are rolled back.
+If `action_confirm` fails (credit limit, etc.), the partner and the draft order **stay in Odoo** — clean them up or retry the confirm.
 
 **Invoice + payment together:**
 ```python
@@ -111,7 +111,7 @@ batch_execute(
         {"model": "account.payment.register", "method": "create",
          "args_json": '[{"amount": 1500.0, "payment_date": "2026-04-19"}]',
          "kwargs_json": f'{{"context": {{"active_model": "account.move", "active_ids": [{invoice_id}]}}}}'},
-        {"model": "account.payment.register", "method": "action_create_payments", "args_json": '[[@2]]'}
+        {"model": "account.payment.register", "method": "action_create_payments", "args_json": '[["@2"]]'}
     ],
     stop_on_error=True
 )
@@ -154,7 +154,8 @@ When an operation fails, the response tells you which one — and how many earli
     "total_operations": 3,
     "successful_operations": 1,
     "failed_operations": 1,
-    "error": "Batch rolled back at operation 2: partner_id required"
+    "rolled_back": False,
+    "error": "Batch stopped at operation 2: partner_id required. 1 earlier operation(s) were already committed to Odoo and were NOT rolled back."
 }
 ```
 

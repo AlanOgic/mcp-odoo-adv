@@ -1,6 +1,6 @@
 {
   "name": "odoo-mcp-adv",
-  "version": "1.0.0-beta",
+  "version": "1.0.0-beta.2",
   "entrypoint": "src/odoo_mcp/server.py",
   "description": "Advanced MCP Server for Odoo with Multiple Transport Support (STDIO, SSE, HTTP)",
   "author": "Alan Ogic <info@alanogic.com>",
@@ -8,7 +8,11 @@
   "repository": "https://github.com/AlanOgic/mcp-odoo-adv",
   "keywords": ["odoo", "mcp", "server", "stdio", "sse", "streaming", "http"],
   "environment": {
-    "dependencies": ["requests>=2.31.0", "fastmcp>=2.12.0"]
+    "dependencies": [
+      "requests>=2.31.0",
+      "python-dotenv>=1.0.0",
+      "fastmcp>=3.2,<4"
+    ]
   },
   "configuration": {
     "ODOO_URL": {

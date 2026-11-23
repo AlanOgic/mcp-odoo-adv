@@ -986,7 +986,7 @@ def add_cookbook_pattern(
 
 
 @mcp.prompt(name="search-customers")
-def search_customers_prompt(city: str = "", country: str = "") -> List[Dict[str, str]]:
+def search_customers_prompt(city: str = "", country: str = "") -> str:
     """Search for customers with optional location filters"""
     filter_desc = []
     if city:
@@ -996,10 +996,7 @@ def search_customers_prompt(city: str = "", country: str = "") -> List[Dict[str,
 
     location_filter = " ".join(filter_desc) if filter_desc else "with any location"
 
-    return [
-        {
-            "role": "user",
-            "content": f"""Find customers {location_filter}.
+    return f"""Find customers {location_filter}.
 
 Use execute_method with:
 - model='res.partner'
@@ -1016,18 +1013,13 @@ execute_method(
 )
 
 Check odoo://model/res.partner/schema for all available fields.
-""",
-        }
-    ]
+"""
 
 
 @mcp.prompt(name="create-sales-order")
-def create_sales_order_prompt(customer_id: int = 0) -> List[Dict[str, str]]:
+def create_sales_order_prompt(customer_id: int = 0) -> str:
     """Create a sales order in Odoo"""
-    return [
-        {
-            "role": "user",
-            "content": f"""Create a new sales order{' for customer ID ' + str(customer_id) if customer_id > 0 else ''}.
+    return f"""Create a new sales order{' for customer ID ' + str(customer_id) if customer_id > 0 else ''}.
 
 Use execute_method to create:
 1. Find customer (if not provided): model='res.partner', method='search_read'
@@ -1039,18 +1031,13 @@ Check schemas:
 - odoo://model/sale.order.line/schema for order lines
 
 See odoo://workflows for complete sales workflow.
-""",
-        }
-    ]
+"""
 
 
 @mcp.prompt(name="odoo-exploration")
-def odoo_exploration_prompt() -> List[Dict[str, str]]:
+def odoo_exploration_prompt() -> str:
     """Discover capabilities of this Odoo instance"""
-    return [
-        {
-            "role": "user",
-            "content": """Explore this Odoo instance systematically:
+    return """Explore this Odoo instance systematically:
 
 1. **Server Info**: Read odoo://server/info
 2. **Workflows**: Read odoo://workflows
@@ -1062,6 +1049,4 @@ Provide summary of:
 - Available workflows
 - My permissions
 - 3-5 suggested tasks
-""",
-        }
-    ]
+"""

@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Dependency layer — cached until pyproject.toml changes
 COPY pyproject.toml README.md /app/
 RUN pip install --upgrade --no-cache-dir pip \
- && pip install --no-cache-dir "fastmcp[cli]>=2.12.0" requests python-dotenv
+ && pip install --no-cache-dir "fastmcp[cli]>=3.2,<4" requests python-dotenv
 
 # Source layer
 COPY src/ /app/src/

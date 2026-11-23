@@ -68,15 +68,17 @@ Read these **before guessing**. They cost less than a failed `execute_method` ca
 | Resource | Returns |
 |---|---|
 | `odoo://models` | All Odoo models in this instance |
-| `odoo://model/{model}` | Model summary + field list |
 | `odoo://model/{model}/schema` | Full schema: fields, types, requireds, relationships |
 | `odoo://model/{model}/access` | Your CRUD permissions on this model |
-| `odoo://fields/{model}` | Field definitions only |
 | `odoo://methods/{model}` | Methods available on this model |
 | `odoo://workflows` | Business workflows enabled by installed modules |
 | `odoo://server/info` | Odoo version, database, installed modules |
 | `odoo://record/{model}/{id}` | A single record |
-| `odoo://search/{model}/{domain}` | Search results for a quoted domain |
+| `odoo://cookbook/patterns` | Learned Patterns from `COOKBOOK.md` (see below) |
+
+That's the complete list. If you're looking for `odoo://model/{model}`,
+`odoo://fields/{model}`, or `odoo://search/{model}/{domain}` — they don't
+exist. Use `odoo://model/{model}/schema` for fields, `execute_method` to search.
 
 ## The cookbook (after your first failure)
 

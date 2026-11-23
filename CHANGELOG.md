@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (BREAKING)
+
+- **FastMCP 3.x is now required** (`fastmcp>=3.2,<4`, in `pyproject.toml`,
+  `fastmcp.json` and all Dockerfiles). FastMCP 3 rejects the 2.x prompt return
+  shape (a list of `{"role", "content"}` dicts), so the three prompts failed at
+  `prompts/get` while `prompts/list` still succeeded. They now return `str`.
+- Added `tests/test_mcp_surface.py`: in-memory smoke tests that drive the real
+  FastMCP machinery (tools, resources, prompts) against a fake Odoo client.
+
 ### Fixed (BREAKING BEHAVIOUR CORRECTION)
 
 - **`batch_execute` was never atomic.** It was documented as "all succeed or

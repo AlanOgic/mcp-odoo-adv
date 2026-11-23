@@ -138,7 +138,7 @@ batch_execute(
 
 - **Single operation**: just use `execute_method`, less ceremony
 - **Different reference data per op** with no result chaining: multiple independent `execute_method` calls are clearer
-- **Long-running imports** (thousands of records): consider a dedicated import via Odoo's `load()` method or a one-shot server action; batch_execute holds a transaction the whole time
+- **Long-running imports** (thousands of records): consider a dedicated import via Odoo's `load()` method or a one-shot server action; batch_execute makes one Odoo call per operation, so it gains nothing there
 
 ## Error messages
 
@@ -167,4 +167,4 @@ Without `batch_execute`, the sequence "create customer → create order → conf
 - A partner but no order (second call failed)
 - A partner + draft order (third call failed) — worse, because now you have a stale record polluting reports
 
-Atomic batches remove that category of bug entirely.
+`batch_execute` does **not** prevent this — the same partial states can remain after a failed batch. What it gives you is one round trip, `@N` chaining, and a response that says exactly which operations landed, so you know what to clean up.

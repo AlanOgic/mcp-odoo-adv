@@ -13,7 +13,7 @@ These skills ship with the repo — anyone who clones it and uses Claude Code ge
 | [`odoo-mcp-crud`](./odoo-mcp-crud/SKILL.md) | Create / write / unlink records; archive vs delete |
 | [`odoo-mcp-relationships`](./odoo-mcp-relationships/SKILL.md) | Handle many2one / one2many / many2many writes (the `[[0, 0, {...}]]` command tuples) |
 | [`odoo-mcp-workflows`](./odoo-mcp-workflows/SKILL.md) | Confirm sale orders, post invoices, validate pickings, mark leads won/lost |
-| [`odoo-mcp-batch`](./odoo-mcp-batch/SKILL.md) | Atomic multi-op transactions — create + link + confirm in one shot |
+| [`odoo-mcp-batch`](./odoo-mcp-batch/SKILL.md) | Sequenced multi-op calls with `@N` references — create + link + confirm in one call (not atomic) |
 | [`odoo-mcp-real-world`](./odoo-mcp-real-world/SKILL.md) | Cross-model recipes: HR, CRM pipeline, stock levels, unpaid invoices |
 | [`odoo-mcp-learned-patterns`](./odoo-mcp-learned-patterns/SKILL.md) | Check the `odoo://cookbook/patterns` resource after a failure; write new patterns after ≥4 failures |
 

@@ -38,7 +38,7 @@ This guide explains the Streamable HTTP transport for MCP at three levels: clien
 
 ### Protocol Details
 
-**Endpoint:** `http://host:port/mcp` (default: `http://0.0.0.0:8008/mcp`)
+**Endpoint:** `http://host:port/mcp` (default: `http://127.0.0.1:8008/mcp`)
 
 **Request Format:**
 ```json

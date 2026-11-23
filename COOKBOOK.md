@@ -608,7 +608,7 @@ execute_method(
 
 ## Batch Operations
 
-### 36. Create Customer + Sales Order (Atomic)
+### 36. Create Customer + Sales Order (chained with @N)
 
 ```python
 batch_execute(
@@ -621,7 +621,7 @@ batch_execute(
         {
             "model": "sale.order",
             "method": "create",
-            "args_json": '[{"partner_id": 8, "order_line": [[0, 0, {"product_id": 5, "product_uom_qty": 1}]]}]'
+            "args_json": '[{"partner_id": "@1", "order_line": [[0, 0, {"product_id": 5, "product_uom_qty": 1}]]}]'
         }
     ],
     stop_on_error=True

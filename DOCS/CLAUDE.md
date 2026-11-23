@@ -57,9 +57,9 @@ After `pip install -e .`, four console scripts are available (defined in `pyproj
 | Script | Module | Default bind | Notes |
 |---|---|---|---|
 | `odoo-mcp` | `odoo_mcp.__main__:main` | stdio | Claude Desktop, Claude Code, Cursor |
-| `odoo-mcp-sse` | `odoo_mcp.runners.sse:main` | `0.0.0.0:8009/sse` | Browsers, legacy MCP clients |
+| `odoo-mcp-sse` | `odoo_mcp.runners.sse:main` | `127.0.0.1:8009/sse` | Browsers, legacy MCP clients (no auth — bind to localhost) |
 | `odoo-mcp-http` | `odoo_mcp.runners.http:main` | `127.0.0.1:8008/mcp` | Streamable HTTP (no auth — bind to localhost) |
-| `odoo-mcp-http-secure` | `odoo_mcp.runners.http_secure:main` | `0.0.0.0:8008/mcp` | Bearer-token auth + IP allowlist |
+| `odoo-mcp-http-secure` | `odoo_mcp.runners.http_secure:main` | `0.0.0.0:8008/mcp` | Bearer-token auth (add IP allowlisting at the reverse proxy) |
 
 ```bash
 # STDIO (Claude Desktop / Claude Code / Cursor)
@@ -628,7 +628,7 @@ The `execute_method` tool automatically normalizes domain parameters:
 ```toml
 [project]
 dependencies = [
-    "fastmcp>=2.12.0",  # MCP framework (2025-06-18 spec)
+    "fastmcp>=3.2,<4",  # MCP framework (3.x only)
     "requests>=2.31.0", # HTTP client
 ]
 

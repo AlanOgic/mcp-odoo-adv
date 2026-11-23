@@ -308,7 +308,7 @@ ODOO_VERIFY_SSL=true                     # SSL verification (default: true)
 HTTP_PROXY=http://proxy:8080             # HTTP proxy for Odoo connection
 
 # Server configuration (SSE/HTTP only)
-MCP_HOST=0.0.0.0                         # Bind address (default: 0.0.0.0)
+MCP_HOST=0.0.0.0                         # Bind address (runner default: 127.0.0.1; the compose files set 0.0.0.0)
 MCP_PORT=8009                            # Port for SSE (default: 8009)
 MCP_PORT=8008                            # Port for HTTP (default: 8008)
 

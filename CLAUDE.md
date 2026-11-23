@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Core philosophy: radical simplicity.** `execute_method` can call *any* method on *any* Odoo model — that is the entire ORM. Specialized tools were removed in v1.0 as redundant. When a capability is missing, the fix is almost always a COOKBOOK recipe or a skill, **not a new tool**.
 
-Package `odoo-mcp` v1.0.0-beta.2, Python ≥3.10 (developed on 3.14), **FastMCP 3.x** (`>=3.2,<4`), license GPL-3.0-or-later.
+Package `odoo-mcp` v1.0.0-beta.2, Python ≥3.10 (developed on 3.13), **FastMCP 3.x** (`>=3.2,<4`), license GPL-3.0-or-later.
 
 The MCP protocol revision is negotiated by FastMCP and the `mcp` SDK — this repo does not implement or pin one. Don't assert a specific spec date in docs; state the FastMCP major instead, which is what actually constrains the code.
 
